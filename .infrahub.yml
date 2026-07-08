@@ -1,0 +1,9 @@
+---
+queries:
+  - name: oob_reachability
+    file_path: "queries/oob_reachability.gql"
+
+check_definitions:
+  - name: oob_reachability_check
+    class_name: OOBReachabilityCheck
+    file_path: "checks/oob_reachability.py"

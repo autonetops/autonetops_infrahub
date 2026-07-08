@@ -1,0 +1,6 @@
+.venv/
+.python-version
+uv.lock
+
+infrahubctl.toml
+pyproject.toml
