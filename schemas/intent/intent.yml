@@ -1,0 +1,730 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
+version: "1.0"
+
+# Intent-Based Networking extension.
+#
+# Design principles (see README):
+#   A. Model the contract, not the mechanism — nothing in here is vendor- or
+#      protocol-implementation-specific.
+#   B. Make invalid states unrepresentable — enums/dropdowns, typed numbers,
+#      required relationships and controlled vocabularies instead of free text.
+#
+# Intent is stable; renderers change. Expectations are the proof.
+
+nodes:
+  # --------------------------------------------------------------------
+  # Taxonomy: controlled vocabularies that prevent free-form strings from
+  # silently fracturing the model.
+  # --------------------------------------------------------------------
+  - name: Zone
+    namespace: Intent
+    description: A named security/routing zone (controlled vocabulary), e.g. corp-emea, internet-peers, transit.
+    label: Network Zone
+    icon: mdi:map-marker-radius-outline
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: zone_type
+        kind: Dropdown
+        optional: false
+        order_weight: 1200
+        choices:
+          - name: corp
+            label: Corporate
+            description: Internal corporate zone.
+            color: "#A9CCE3"
+          - name: core
+            label: Core
+            description: Provider core / backbone.
+            color: "#7f7fff"
+          - name: internet_peering
+            label: Internet Peering
+            description: Public peers (IX or PNI).
+            color: "#F4CCCC"
+          - name: transit
+            label: Transit
+            description: Paid upstream transit.
+            color: "#FAD7A0"
+          - name: partner
+            label: Partner
+            description: Extranet / partner zone.
+            color: "#D2B4DE"
+          - name: management
+            label: Management
+            description: OOB / management zone.
+            color: "#E3DAC9"
+
+  - name: Capability
+    namespace: Intent
+    description: A capability a platform provides (telemetry, management or forwarding feature). Renderers and the observability compiler branch on these.
+    label: Platform Capability
+    icon: mdi:puzzle-check-outline
+    menu_placement: IntentZone
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        description: "Controlled vocabulary: gnmi, netconf, snmp, ssh_cli, bmp_client, mpls, srv6, policy_attach ..."
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: category
+        kind: Dropdown
+        optional: false
+        order_weight: 1200
+        choices:
+          - name: telemetry
+            label: Telemetry
+            description: How operational state can be extracted (gnmi, snmp, ssh_cli, bmp_client).
+            color: "#A9DFBF"
+          - name: management
+            label: Management
+            description: How configuration is delivered (netconf, gnmi_set, ssh_cli).
+            color: "#A9CCE3"
+          - name: forwarding
+            label: Forwarding
+            description: Dataplane/control-plane feature (mpls, srv6, large_communities).
+            color: "#D2B4DE"
+
+  # --------------------------------------------------------------------
+  # Tenant: the unit of ownership, isolation and blast radius.
+  # --------------------------------------------------------------------
+  - name: Tenant
+    namespace: Intent
+    description: A tenant is the unit of ownership, isolation and blast radius. It owns VRFs/segments and every other intent hangs off it.
+    label: Tenant Intent
+    icon: mdi:account-group-outline
+    inherit_from:
+      - CoreArtifactTarget
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: environment
+        kind: Dropdown
+        optional: false
+        default_value: prod
+        order_weight: 1200
+        choices:
+          - name: prod
+            label: Production
+            description: Production environment.
+            color: "#F4CCCC"
+          - name: staging
+            label: Staging
+            description: Pre-production environment.
+            color: "#FFF2CC"
+          - name: dev
+            label: Development
+            description: Development / lab environment.
+            color: "#A9DFBF"
+      - name: owner
+        kind: Text
+        description: Owning team (e.g. customer-success-emea).
+        order_weight: 1300
+      - name: ticket
+        kind: Text
+        optional: true
+        description: Change/authorization reference (e.g. CHG-2025-1209).
+        order_weight: 1400
+      - name: tenant_community
+        kind: Text
+        optional: true
+        regex: "^\\d+:\\d+$"
+        description: "BGP community marking all routes of this tenant (asn:value). Renderers attach it; leak detection matches on it."
+        order_weight: 1500
+    relationships:
+      - name: vrfs
+        peer: IpamVRF
+        identifier: intenttenant__vrf
+        optional: true
+        cardinality: many
+        kind: Attribute
+        order_weight: 2000
+
+  # --------------------------------------------------------------------
+  # Routing contract: who may advertise what, with which attributes,
+  # and what must never happen.
+  # --------------------------------------------------------------------
+  - name: RoutingContract
+    namespace: Intent
+    description: A BGP routing contract - prefix authorization, attribute policy, export constraints and invariants. Never mentions vendor mechanisms.
+    label: Routing Contract
+    icon: mdi:file-sign
+    inherit_from:
+      - CoreArtifactTarget
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: role
+        kind: Dropdown
+        optional: false
+        order_weight: 1200
+        choices:
+          - name: customer_edge
+            label: Customer Edge
+            description: CE-facing contract (eBGP into a tenant VRF).
+            color: "#D2B4DE"
+          - name: internet_peering
+            label: Internet Peering
+            description: Public peer contract.
+            color: "#F4CCCC"
+          - name: transit
+            label: Transit
+            description: Upstream transit contract.
+            color: "#FAD7A0"
+          - name: core
+            label: Core
+            description: Internal core contract (e.g. RR clients).
+            color: "#7f7fff"
+      - name: peer_asn
+        kind: Number
+        optional: false
+        description: Remote autonomous system number (0-4294967295).
+        order_weight: 1300
+      - name: afi_safis
+        kind: List
+        optional: false
+        description: 'Allowed address families. Controlled values: ipv4-unicast, ipv6-unicast, vpn-ipv4, vpn-ipv6.'
+        order_weight: 1400
+      - name: max_prefixes_ipv4
+        kind: Number
+        optional: true
+        description: Inbound IPv4 prefix limit (range invariant, not exact count).
+        order_weight: 1500
+      - name: max_prefixes_ipv6
+        kind: Number
+        optional: true
+        description: Inbound IPv6 prefix limit.
+        order_weight: 1550
+      - name: local_preference
+        kind: Number
+        optional: true
+        description: Local preference applied to routes learned on this contract.
+        order_weight: 1600
+      - name: require_communities
+        kind: List
+        optional: true
+        description: Communities that MUST be present on accepted routes (validated inbound).
+        order_weight: 1700
+      - name: attach_communities
+        kind: List
+        optional: true
+        description: Communities attached to routes learned on this contract.
+        order_weight: 1750
+    relationships:
+      - name: tenant
+        peer: IntentTenant
+        identifier: intentcontract__tenant
+        optional: true
+        cardinality: one
+        kind: Attribute
+        description: Owning tenant. Empty for infrastructure contracts (peering/transit/core).
+        order_weight: 2000
+      - name: zone
+        peer: IntentZone
+        identifier: intentcontract__zone
+        optional: false
+        cardinality: one
+        kind: Attribute
+        description: Zone the remote peer belongs to.
+        order_weight: 2100
+      - name: pe_devices
+        peer: DcimGenericDevice
+        identifier: intentcontract__pe
+        optional: true
+        cardinality: many
+        kind: Attribute
+        label: Attachment (PE) devices
+        description: Provider-side devices where this contract attaches. Two or more = redundant attachment.
+        order_weight: 2200
+      - name: ce_devices
+        peer: DcimGenericDevice
+        identifier: intentcontract__ce
+        optional: true
+        cardinality: many
+        kind: Attribute
+        label: Remote (CE/peer) devices
+        order_weight: 2300
+      - name: allowed_prefixes
+        peer: IpamPrefix
+        identifier: intentcontract__allowedprefix
+        optional: true
+        cardinality: many
+        kind: Attribute
+        description: Prefix authorization - the ONLY prefixes the remote side may advertise.
+        order_weight: 2400
+      - name: export_deny_zones
+        peer: IntentZone
+        identifier: intentcontract__exportdeny
+        optional: true
+        cardinality: many
+        kind: Attribute
+        description: Zones this contract's routes must NEVER be exported to (e.g. internet-peers, transit).
+        order_weight: 2500
+      - name: export_tenants
+        peer: IntentTenant
+        identifier: intentcontract__exporttenant
+        optional: true
+        cardinality: many
+        kind: Attribute
+        description: For peering/transit contracts - tenants whose routes MAY be exported to this peer. Anything not listed is denied by default.
+        order_weight: 2600
+      - name: invariants
+        peer: IntentInvariant
+        optional: true
+        cardinality: many
+        kind: Component
+        order_weight: 2700
+
+  - name: Invariant
+    namespace: Intent
+    description: A statement about the contract that must never be violated. Checks enforce these at merge time; expectations encode them for runtime validation.
+    label: Contract Invariant
+    icon: mdi:shield-lock-outline
+    menu_placement: IntentRoutingContract
+    display_label: invariant_type__value
+    order_by:
+      - invariant_type__value
+    attributes:
+      - name: invariant_type
+        kind: Dropdown
+        optional: false
+        order_weight: 1000
+        choices:
+          - name: no_leak
+            label: No Leak
+            description: Routes must not be exported to any zone listed in export_deny_zones.
+            color: "#F4CCCC"
+          - name: no_default_origination
+            label: No Default Origination
+            description: System must not originate a default route toward the peer unless explicitly enabled.
+            color: "#FAD7A0"
+          - name: no_reorigination
+            label: No Re-origination
+            description: Routes learned here must keep their original attributes (no re-origination).
+            color: "#FFF2CC"
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: contract
+        peer: IntentRoutingContract
+        optional: false
+        cardinality: one
+        kind: Parent
+        order_weight: 2000
+
+  # --------------------------------------------------------------------
+  # Reachability: assert outcomes, not configs.
+  # --------------------------------------------------------------------
+  - name: Reachability
+    namespace: Intent
+    description: Declares that a set of prefixes must be reachable from a zone, with redundancy and convergence constraints.
+    label: Reachability Intent
+    icon: mdi:lan-connect
+    menu_placement: IntentTenant
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: require_redundancy
+        kind: Boolean
+        default_value: true
+        description: Tenant attachment must survive the loss of any single PE.
+        order_weight: 1200
+      - name: max_convergence_seconds
+        kind: Number
+        optional: true
+        description: Acceptable restoration time after a single failure.
+        order_weight: 1300
+    relationships:
+      - name: tenant
+        peer: IntentTenant
+        identifier: intentreach__tenant
+        optional: false
+        cardinality: one
+        kind: Attribute
+        order_weight: 2000
+      - name: from_zone
+        peer: IntentZone
+        identifier: intentreach__fromzone
+        optional: false
+        cardinality: one
+        kind: Attribute
+        order_weight: 2100
+      - name: to_prefixes
+        peer: IpamPrefix
+        identifier: intentreach__prefix
+        optional: false
+        cardinality: many
+        kind: Attribute
+        order_weight: 2200
+
+  # --------------------------------------------------------------------
+  # Security: who can initiate what, in business terms.
+  # --------------------------------------------------------------------
+  - name: SecurityPolicy
+    namespace: Intent
+    description: Security posture for a tenant - allowed flows, deny posture and DDoS profile, attached by role/interface-class selectors (never by device name).
+    label: Security Intent
+    icon: mdi:security
+    menu_placement: IntentTenant
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: ddos_profile
+        kind: Dropdown
+        optional: false
+        default_value: none
+        order_weight: 1200
+        choices:
+          - name: none
+            label: None
+            description: No DDoS protection required.
+            color: "#D3D3D3"
+          - name: standard_l3vpn
+            label: Standard L3VPN
+            description: Standard scrubbing profile for L3VPN customers.
+            color: "#A9CCE3"
+          - name: hardened
+            label: Hardened
+            description: Aggressive protection for critical services.
+            color: "#F4CCCC"
+      - name: attach_device_role
+        kind: Dropdown
+        optional: false
+        description: Device role selector - where this policy attaches.
+        order_weight: 1300
+        choices:
+          - name: pe
+            label: Provider Edge
+            description: Attach on PE devices.
+          - name: ce
+            label: Customer Edge
+            description: Attach on CE devices.
+          - name: core
+            label: Core
+            description: Attach on core devices.
+      - name: attach_interface_role
+        kind: Dropdown
+        optional: false
+        description: Interface class selector (maps to DcimInterface role vocabulary).
+        order_weight: 1400
+        choices:
+          - name: cust
+            label: To Customer
+            description: Customer-facing interfaces.
+          - name: peering
+            label: To Peering
+            description: Public-peer-facing interfaces.
+          - name: core
+            label: To Core
+            description: Core-facing interfaces.
+          - name: management
+            label: Management
+            description: Management interfaces.
+    relationships:
+      - name: tenant
+        peer: IntentTenant
+        identifier: intentsec__tenant
+        optional: false
+        cardinality: one
+        kind: Attribute
+        order_weight: 2000
+      - name: rules
+        peer: IntentSecurityRule
+        optional: true
+        cardinality: many
+        kind: Component
+        order_weight: 2100
+
+  - name: SecurityRule
+    namespace: Intent
+    description: A single allow/deny statement inside a security intent.
+    label: Security Rule
+    icon: mdi:filter-outline
+    menu_placement: IntentSecurityPolicy
+    display_label: name__value
+    order_by:
+      - index__value
+    attributes:
+      - name: name
+        kind: Text
+        optional: false
+        order_weight: 1000
+      - name: index
+        kind: Number
+        optional: false
+        description: Evaluation order (lower first).
+        order_weight: 1050
+      - name: action
+        kind: Dropdown
+        optional: false
+        order_weight: 1100
+        choices:
+          - name: allow
+            label: Allow
+            description: Permit matching traffic.
+            color: "#A9DFBF"
+          - name: deny
+            label: Deny
+            description: Drop matching traffic.
+            color: "#F4CCCC"
+      - name: protocol
+        kind: Dropdown
+        optional: false
+        default_value: any
+        order_weight: 1200
+        choices:
+          - name: any
+            label: Any
+            description: Any IP protocol.
+          - name: tcp
+            label: TCP
+            description: TCP only.
+          - name: udp
+            label: UDP
+            description: UDP only.
+          - name: icmp
+            label: ICMP
+            description: ICMP only.
+      - name: dst_ports
+        kind: List
+        optional: true
+        description: Destination ports (integers). Empty = any.
+        order_weight: 1300
+    relationships:
+      - name: policy
+        peer: IntentSecurityPolicy
+        optional: false
+        cardinality: one
+        kind: Parent
+        order_weight: 2000
+      - name: src_zone
+        peer: IntentZone
+        identifier: intentrule__srczone
+        optional: true
+        cardinality: one
+        kind: Attribute
+        description: Source zone. Empty = any.
+        order_weight: 2100
+      - name: dst_prefixes
+        peer: IpamPrefix
+        identifier: intentrule__dstprefix
+        optional: true
+        cardinality: many
+        kind: Attribute
+        description: Destination prefixes. Empty = any.
+        order_weight: 2200
+
+  # --------------------------------------------------------------------
+  # Reliability: guardrails that keep the design from degrading.
+  # --------------------------------------------------------------------
+  - name: Reliability
+    namespace: Intent
+    description: Engineering-quality guardrails - minimum attachment redundancy and failure-domain separation for a tenant.
+    label: Reliability Intent
+    icon: mdi:shield-refresh-outline
+    menu_placement: IntentTenant
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: min_pe_attachments
+        kind: Number
+        default_value: 2
+        description: Minimum number of distinct PE devices carrying each contract of this tenant.
+        order_weight: 1200
+      - name: require_distinct_failure_domains
+        kind: Boolean
+        default_value: true
+        description: Attachment PEs must live in distinct failure domains (different locations).
+        order_weight: 1300
+    relationships:
+      - name: tenant
+        peer: IntentTenant
+        identifier: intentrel__tenant
+        optional: false
+        cardinality: one
+        kind: Attribute
+        order_weight: 2000
+
+  # --------------------------------------------------------------------
+  # Observability: modeled up front, compiled into collectors + alerts.
+  # --------------------------------------------------------------------
+  - name: ObservabilitySignal
+    namespace: Intent
+    description: A required operational signal - what must be measured, how often, and what drift means. Compiled into collector configs (gNMI or CLI-scrape depending on device capability) and alert rules.
+    label: Observability Signal
+    icon: mdi:chart-line
+    menu_placement: IntentTenant
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    display_label: name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: signal
+        kind: Dropdown
+        optional: false
+        order_weight: 1100
+        choices:
+          - name: bgp_session_state
+            label: BGP Session State
+            description: Session established/idle per neighbor.
+            color: "#A9CCE3"
+          - name: bgp_route_count
+            label: BGP Route Count
+            description: Prefixes received/advertised per neighbor.
+            color: "#A9DFBF"
+          - name: interface_errors
+            label: Interface Errors
+            description: Error/discard counters on contract attachment interfaces.
+            color: "#FFF2CC"
+          - name: policy_export_violation
+            label: Policy Export Violation
+            description: Evidence of routes appearing where export is denied (leak detection).
+            color: "#F4CCCC"
+          - name: device_reachability
+            label: Device Reachability
+            description: Device answers on its OOB/management path.
+            color: "#E3DAC9"
+      - name: direction
+        kind: Dropdown
+        optional: true
+        order_weight: 1200
+        choices:
+          - name: inbound
+            label: Inbound
+            description: Received from the peer.
+          - name: outbound
+            label: Outbound
+            description: Advertised to the peer.
+      - name: frequency_seconds
+        kind: Number
+        optional: false
+        default_value: 30
+        description: Collection interval. Also drives the freshness expectation.
+        order_weight: 1300
+      - name: severity
+        kind: Dropdown
+        optional: false
+        default_value: sev3
+        order_weight: 1400
+        choices:
+          - name: sev1
+            label: Sev 1
+            description: Page immediately - invariant violated.
+            color: "#F4CCCC"
+          - name: sev2
+            label: Sev 2
+            description: Urgent - service-impacting drift.
+            color: "#FAD7A0"
+          - name: sev3
+            label: Sev 3
+            description: Investigate during business hours.
+            color: "#FFF2CC"
+          - name: sev4
+            label: Sev 4
+            description: Informational.
+            color: "#D3D3D3"
+      - name: condition
+        kind: Text
+        optional: false
+        description: 'Alert condition, small DSL: e.g. "down_for > 60s", "count > max_prefixes", "count > 0".'
+        order_weight: 1500
+    relationships:
+      - name: contract
+        peer: IntentRoutingContract
+        identifier: intentsignal__contract
+        optional: true
+        cardinality: one
+        kind: Attribute
+        description: Contract scope (empty = tenant- or fleet-wide signal).
+        order_weight: 2000
+      - name: tenant
+        peer: IntentTenant
+        identifier: intentsignal__tenant
+        optional: true
+        cardinality: one
+        kind: Attribute
+        order_weight: 2100
+
+extensions:
+  nodes:
+    # Capabilities live on the platform: devices inherit them via their
+    # platform, and renderers/observability compilers branch on them.
+    - kind: DcimPlatform
+      relationships:
+        - name: capabilities
+          peer: IntentCapability
+          identifier: platform__capability
+          optional: true
+          cardinality: many
+          kind: Attribute
+          order_weight: 2000
