@@ -15,7 +15,6 @@ monitoring/telegraf/
 
 # Infrahub
 infrahubctl.toml
-pyproject.toml
 build/
 __pycache__/
 *.pyc
