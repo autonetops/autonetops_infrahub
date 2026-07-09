@@ -45,7 +45,7 @@ class OOBReachabilityCheck(InfrahubCheck):
         for iedge in device["interfaces"]["edges"]:
             iface = iedge["node"]
             role = (iface.get("role") or {}).get("value")
-            if role != "oob":
+            if role != "management":
                 continue
             connector = (iface.get("connector") or {}).get("node")
             if not connector:
