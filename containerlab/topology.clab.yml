@@ -26,9 +26,9 @@ mgmt:
 topology:
   kinds:
     cisco_iol:
-      image: vrnetlab/cisco_iol:17.12.01
+      image: ghcr.io/autonetops/autonetops_labs/cisco_iol:latest
     ceos:
-      image: ceos:4.32.2F
+      image: ghcr.io/autonetops/ceos:latest
     nokia_srlinux:
       image: ghcr.io/nokia/srlinux:24.10.1
       type: ixrd3l

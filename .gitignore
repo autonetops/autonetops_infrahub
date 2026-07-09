@@ -1,6 +1,14 @@
+# AGENTS
+.agents/
+.claude/
+
+# VENV
 .venv/
 .python-version
 uv.lock
+
+# CLAB
+clab-intent-lab/
 
 infrahubctl.toml
 pyproject.toml
