@@ -5,7 +5,7 @@ Reachable means: the device has at least one interface with role
 CoreStandardGroup. The traversal runs entirely on the Proposed Change
 branch data returned by the ``oob_reachability`` query - no live network
 access, this validates the *modeled* OOB path.
-"""
+
 
 from infrahub_sdk.checks import InfrahubCheck
 
@@ -55,3 +55,4 @@ class OOBReachabilityCheck(InfrahubCheck):
                 if remote_device and remote_device["id"] in oob_ids:
                     return True
         return False
+"""
