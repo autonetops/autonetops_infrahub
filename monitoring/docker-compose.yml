@@ -1,0 +1,61 @@
+# Evidence pipeline: telegraf -> Prometheus -> Grafana.
+#
+# Static plumbing only. Everything signal-specific (which devices, which
+# subscriptions, which alert thresholds, which dashboards) is COMPILED
+# from intent and fetched into the mounted directories by
+# scripts/fetch_artifacts.py:
+#
+#   telegraf/telegraf.d/        <- telegraf-inputs artifacts (per device)
+#   prometheus/rules/           <- prometheus-rules artifacts (per contract)
+#   grafana/dashboards/         <- grafana-dashboard artifacts (per tenant)
+#
+# Joins the containerlab management network so collectors reach the nodes.
+
+services:
+  telegraf:
+    build: ./telegraf
+    environment:
+      GNMI_USER: ${GNMI_USER:-admin}
+      GNMI_PASSWORD: ${GNMI_PASSWORD:-admin}
+      SSH_USER: ${SSH_USER:-admin}
+      SSH_PASSWORD: ${SSH_PASSWORD:-admin}
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - ./telegraf/telegraf.d:/etc/telegraf/telegraf.d:ro
+      - ../scripts/cli_bgp_telemetry.py:/scripts/cli_bgp_telemetry.py:ro
+    networks:
+      - clab-mgmt
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - clab-mgmt
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - clab-mgmt
+    restart: unless-stopped
+
+networks:
+  clab-mgmt:
+    name: intent-lab-mgmt
+    external: true

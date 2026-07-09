@@ -1,0 +1,49 @@
+query observability_capability {
+  IntentObservabilitySignal {
+    edges {
+      node {
+        name {
+          value
+        }
+        signal {
+          value
+        }
+        contract {
+          node {
+            name {
+              value
+            }
+            pe_devices {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  platform {
+                    node {
+                      name {
+                        value
+                      }
+                      capabilities {
+                        edges {
+                          node {
+                            name {
+                              value
+                            }
+                            category {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

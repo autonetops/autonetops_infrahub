@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: intent-dashboards
+    folder: Intent
+    type: file
+    updateIntervalSeconds: 30
+    options:
+      # populated with compiled grafana-dashboard artifacts (one per tenant)
+      path: /var/lib/grafana/dashboards

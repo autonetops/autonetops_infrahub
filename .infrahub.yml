@@ -1,9 +1,117 @@
 ---
+# Intent pipeline wiring.
+#
+#   queries           - the read contracts every check/compiler consumes
+#   check_definitions - semantic invariants; they gate Proposed Changes
+#   python_transforms + artifact_definitions - the compiler: intent in,
+#       configs + expectations + observability bundles out
+#
+# Group targets (created by scripts/bootstrap.py):
+#   network_devices   - every routing node (config artifacts)
+#   monitored_devices - devices with telemetry requirements
+#   intent_contracts  - IntentRoutingContract nodes (targeted checks + artifacts)
+#   intent_tenants    - IntentTenant nodes (dashboards)
+#   oob_switches      - OOB management switches (consumed by the OOB check)
+
 queries:
   - name: oob_reachability
     file_path: "queries/oob_reachability.gql"
+  - name: contract_no_leak
+    file_path: "queries/contract_no_leak.gql"
+  - name: contract_prefix_authorization
+    file_path: "queries/contract_prefix_authorization.gql"
+  - name: tenant_redundancy
+    file_path: "queries/tenant_redundancy.gql"
+  - name: observability_capability
+    file_path: "queries/observability_capability.gql"
+  - name: device_config
+    file_path: "queries/device_config.gql"
+  - name: contract_expectations
+    file_path: "queries/contract_expectations.gql"
+  - name: telemetry_collector
+    file_path: "queries/telemetry_collector.gql"
+  - name: prometheus_rules
+    file_path: "queries/prometheus_rules.gql"
+  - name: grafana_dashboard
+    file_path: "queries/grafana_dashboard.gql"
 
 check_definitions:
   - name: oob_reachability_check
     class_name: OOBReachabilityCheck
     file_path: "checks/oob_reachability.py"
+  - name: tenant_redundancy_check
+    class_name: TenantRedundancyCheck
+    file_path: "checks/tenant_redundancy.py"
+  - name: observability_capability_check
+    class_name: ObservabilityCapabilityCheck
+    file_path: "checks/observability_capability.py"
+  - name: contract_no_leak_check
+    class_name: ContractNoLeakCheck
+    file_path: "checks/contract_no_leak.py"
+    targets: intent_contracts
+    parameters:
+      contract: name__value
+  - name: contract_prefix_authorization_check
+    class_name: ContractPrefixAuthorizationCheck
+    file_path: "checks/contract_prefix_authorization.py"
+    targets: intent_contracts
+    parameters:
+      contract: name__value
+
+python_transforms:
+  - name: device_config
+    class_name: DeviceConfigTransform
+    file_path: "transforms/device_config.py"
+  - name: contract_expectations
+    class_name: ContractExpectationsTransform
+    file_path: "transforms/contract_expectations.py"
+  - name: telemetry_collector
+    class_name: TelemetryCollectorTransform
+    file_path: "transforms/telemetry_collector.py"
+  - name: prometheus_rules
+    class_name: PrometheusRulesTransform
+    file_path: "transforms/prometheus_rules.py"
+  - name: grafana_dashboard
+    class_name: GrafanaDashboardTransform
+    file_path: "transforms/grafana_dashboard.py"
+
+artifact_definitions:
+  - name: device-configuration
+    artifact_name: device-configuration
+    content_type: text/plain
+    targets: network_devices
+    transformation: device_config
+    parameters:
+      device: name__value
+
+  - name: telegraf-inputs
+    artifact_name: telegraf-inputs
+    content_type: text/plain
+    targets: monitored_devices
+    transformation: telemetry_collector
+    parameters:
+      device: name__value
+
+  - name: contract-expectations
+    artifact_name: contract-expectations
+    content_type: text/plain
+    targets: intent_contracts
+    transformation: contract_expectations
+    parameters:
+      contract: name__value
+
+  - name: prometheus-rules
+    artifact_name: prometheus-rules
+    content_type: text/plain
+    targets: intent_contracts
+    transformation: prometheus_rules
+    parameters:
+      contract: name__value
+
+  - name: grafana-dashboard
+    artifact_name: grafana-dashboard
+    content_type: application/json
+    targets: intent_tenants
+    transformation: grafana_dashboard
+    parameters:
+      tenant: name__value

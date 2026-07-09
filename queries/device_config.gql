@@ -1,0 +1,362 @@
+query device_config($device: String!) {
+  DcimDevice(name__value: $device) {
+    edges {
+      node {
+        id
+        name {
+          value
+        }
+        role {
+          value
+        }
+        platform {
+          node {
+            name {
+              value
+            }
+            netmiko_device_type {
+              value
+            }
+            capabilities {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  category {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+        asn {
+          node {
+            asn {
+              value
+            }
+          }
+        }
+        primary_address {
+          node {
+            address {
+              value
+            }
+          }
+        }
+        interfaces {
+          edges {
+            node {
+              name {
+                value
+              }
+              description {
+                value
+              }
+              role {
+                value
+              }
+              ... on InterfaceLayer3 {
+                ip_addresses {
+                  edges {
+                    node {
+                      address {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+              ... on DcimEndpoint {
+                connector {
+                  node {
+                    connected_endpoints {
+                      edges {
+                        node {
+                          ... on DcimInterface {
+                            name {
+                              value
+                            }
+                            device {
+                              node {
+                                name {
+                                  value
+                                }
+                              }
+                            }
+                          }
+                          ... on InterfaceLayer3 {
+                            ip_addresses {
+                              edges {
+                                node {
+                                  address {
+                                    value
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentRoutingContract {
+    edges {
+      node {
+        name {
+          value
+        }
+        role {
+          value
+        }
+        peer_asn {
+          value
+        }
+        afi_safis {
+          value
+        }
+        max_prefixes_ipv4 {
+          value
+        }
+        max_prefixes_ipv6 {
+          value
+        }
+        local_preference {
+          value
+        }
+        require_communities {
+          value
+        }
+        attach_communities {
+          value
+        }
+        zone {
+          node {
+            name {
+              value
+            }
+            zone_type {
+              value
+            }
+          }
+        }
+        export_deny_zones {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        export_tenants {
+          edges {
+            node {
+              name {
+                value
+              }
+              tenant_community {
+                value
+              }
+            }
+          }
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+            tenant_community {
+              value
+            }
+            vrfs {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  vrf_rd {
+                    value
+                  }
+                  import_rt {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                  export_rt {
+                    node {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        pe_devices {
+          edges {
+            node {
+              name {
+                value
+              }
+              interfaces {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    ... on InterfaceLayer3 {
+                      ip_addresses {
+                        edges {
+                          node {
+                            address {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        ce_devices {
+          edges {
+            node {
+              name {
+                value
+              }
+              interfaces {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    ... on InterfaceLayer3 {
+                      ip_addresses {
+                        edges {
+                          node {
+                            address {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        allowed_prefixes {
+          edges {
+            node {
+              prefix {
+                value
+              }
+            }
+          }
+        }
+        invariants {
+          edges {
+            node {
+              invariant_type {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentTenant {
+    edges {
+      node {
+        name {
+          value
+        }
+        tenant_community {
+          value
+        }
+      }
+    }
+  }
+  IntentSecurityPolicy {
+    edges {
+      node {
+        name {
+          value
+        }
+        ddos_profile {
+          value
+        }
+        attach_device_role {
+          value
+        }
+        attach_interface_role {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        rules {
+          edges {
+            node {
+              name {
+                value
+              }
+              index {
+                value
+              }
+              action {
+                value
+              }
+              protocol {
+                value
+              }
+              dst_ports {
+                value
+              }
+              src_zone {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+              dst_prefixes {
+                edges {
+                  node {
+                    prefix {
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

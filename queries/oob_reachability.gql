@@ -1,9 +1,63 @@
-# queries/oob_reachability.gql
 query oob_reachability {
   CoreStandardGroup(name__value: "oob_switches") {
-    edges { node { members { edges { node { id display_label } } } } }
+    edges {
+      node {
+        members {
+          edges {
+            node {
+              id
+              display_label
+            }
+          }
+        }
+      }
+    }
   }
   DcimDevice {
-    edges { node { id display_label } }
+    edges {
+      node {
+        id
+        name {
+          value
+        }
+        role {
+          value
+        }
+        interfaces {
+          edges {
+            node {
+              name {
+                value
+              }
+              role {
+                value
+              }
+              ... on DcimEndpoint {
+                connector {
+                  node {
+                    connected_endpoints {
+                      edges {
+                        node {
+                          ... on DcimInterface {
+                            device {
+                              node {
+                                id
+                                name {
+                                  value
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

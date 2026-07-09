@@ -1,0 +1,67 @@
+query contract_no_leak($contract: String!) {
+  target: IntentRoutingContract(name__value: $contract) {
+    edges {
+      node {
+        name {
+          value
+        }
+        role {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        export_deny_zones {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        invariants {
+          edges {
+            node {
+              invariant_type {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  all_contracts: IntentRoutingContract {
+    edges {
+      node {
+        name {
+          value
+        }
+        role {
+          value
+        }
+        zone {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        export_tenants {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

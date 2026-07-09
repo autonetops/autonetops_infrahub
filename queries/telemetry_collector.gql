@@ -1,0 +1,87 @@
+query telemetry_collector($device: String!) {
+  DcimDevice(name__value: $device) {
+    edges {
+      node {
+        name {
+          value
+        }
+        role {
+          value
+        }
+        primary_address {
+          node {
+            address {
+              value
+            }
+          }
+        }
+        platform {
+          node {
+            name {
+              value
+            }
+            capabilities {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                  category {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentObservabilitySignal {
+    edges {
+      node {
+        name {
+          value
+        }
+        signal {
+          value
+        }
+        direction {
+          value
+        }
+        frequency_seconds {
+          value
+        }
+        severity {
+          value
+        }
+        condition {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        contract {
+          node {
+            name {
+              value
+            }
+            pe_devices {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
