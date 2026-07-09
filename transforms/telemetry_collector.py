@@ -158,7 +158,7 @@ class TelemetryCollectorTransform(InfrahubTransform):
             f'  redial = "10s"',
             "  insecure_skip_verify = true"
             if platform_name == "nokia_srlinux"
-            else "  enable_tls = false",
+            else "  tls_enable = false",
             "  [inputs.gnmi.tags]",
             f'    device = "{name}"',
         ]

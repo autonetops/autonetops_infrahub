@@ -9,7 +9,11 @@ uv.lock
 
 # CLAB
 clab-intent-lab/
+monitoring/grafana/
+monitoring/prometheus/
+monitoring/telegraf/
 
+# Infrahub
 infrahubctl.toml
 pyproject.toml
 build/
