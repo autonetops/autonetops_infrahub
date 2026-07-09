@@ -1,6 +1,8 @@
 # telegraf + the CLI-scrape toolchain for gNMI-less platforms.
-# The exec input compiled for the Cisco PE runs a netmiko-based script;
-# stock telegraf images carry no python, hence this thin extension.
+# The exec input a gNMI-less platform compiles to runs a netmiko-based
+# script; stock telegraf images carry no python, hence this thin extension.
+# Nothing compiles to that collector while both PEs are cEOS, but the
+# toolchain stays so scoping a signal at the Cisco CEs just works.
 FROM telegraf:1.39
 
 RUN apt-get update \

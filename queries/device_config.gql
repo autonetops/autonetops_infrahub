@@ -212,6 +212,13 @@ query device_config($device: String!) {
               name {
                 value
               }
+              asn {
+                node {
+                  asn {
+                    value
+                  }
+                }
+              }
               interfaces {
                 edges {
                   node {
@@ -240,6 +247,13 @@ query device_config($device: String!) {
             node {
               name {
                 value
+              }
+              asn {
+                node {
+                  asn {
+                    value
+                  }
+                }
               }
               interfaces {
                 edges {

@@ -6,9 +6,13 @@ push of build/configs/*.cfg produced by fetch_artifacts.py. Transport is
 selected per platform - the same capability-driven dispatch the
 compilers use, at the delivery stage:
 
-    cisco_iosxe / arista_eos -> SSH CLI (netmiko)
-    nokia_srlinux            -> SSH sr_cli (set-command file)
+    arista_eos / cisco_iosxe -> SSH CLI (netmiko)
+    juniper_junos            -> SSH CLI (netmiko), `set` lines + commit
     frr                      -> docker exec vtysh (no SSH daemon needed)
+
+Every platform here also claims `netconf`, and a production runner would
+prefer it (or gNMI Set on the cEOS PEs) over screen-scraping a CLI. The
+lab stays on netmiko to keep the dependency surface at one library.
 
 In a production system this would be a runner reacting to InfraHub merge
 events, followed by the validator loop comparing ContractExpectations
@@ -29,50 +33,69 @@ CONFIG_DIR = REPO_ROOT / "build" / "configs"
 
 SSH_USER = os.environ.get("SSH_USER", "admin")
 SSH_PASSWORD = os.environ.get("SSH_PASSWORD", "admin")
-SRL_PASSWORD = os.environ.get("SRL_PASSWORD", "NokiaSrl1!")
+# containerlab seeds vJunos with admin/admin@123
+JUNOS_USER = os.environ.get("JUNOS_USER", "admin")
+JUNOS_PASSWORD = os.environ.get("JUNOS_PASSWORD", "admin@123")
 
 # device -> (platform, mgmt address / container name)
 INVENTORY = {
-    "pe-emea-01": ("cisco_iosxe", "172.20.20.11"),
+    "pe-emea-01": ("arista_eos", "172.20.20.11"),
     "pe-emea-02": ("arista_eos", "172.20.20.12"),
-    "core-rr-01": ("nokia_srlinux", "172.20.20.13"),
-    "ce-custc-01": ("frr", "clab-intent-lab-ce-custc-01"),
-    "ce-custc-02": ("frr", "clab-intent-lab-ce-custc-02"),
+    "core-rr-01": ("juniper_junos", "172.20.20.13"),
+    "ce-custc-01": ("cisco_iosxe", "172.20.20.21"),
+    "ce-custc-02": ("cisco_iosxe", "172.20.20.22"),
     "peer-inet-01": ("frr", "clab-intent-lab-peer-inet-01"),
 }
 
-NETMIKO_TYPES = {"cisco_iosxe": "cisco_ios", "arista_eos": "arista_eos"}
+NETMIKO_TYPES = {
+    "cisco_iosxe": "cisco_ios",
+    "arista_eos": "arista_eos",
+    "juniper_junos": "juniper_junos",
+}
+
+CREDENTIALS = {
+    "juniper_junos": (JUNOS_USER, JUNOS_PASSWORD),
+}
+
+
+def _config_lines(platform, config):
+    """Strip the artifact's comment header - Junos treats a bare `#` line
+    as a comment only in a config file, not at the CLI prompt."""
+    if platform == "juniper_junos":
+        return [
+            line for line in config.splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+    return config.splitlines()
 
 
 def push_cli(platform, host, config):
-    conn = ConnectHandler(
-        device_type=NETMIKO_TYPES[platform],
-        host=host,
-        username=SSH_USER,
-        password=SSH_PASSWORD,
-        secret=SSH_PASSWORD,
-    )
-    conn.enable()
-    output = conn.send_config_set(config.splitlines(), cmd_verify=False)
-    if platform == "cisco_iosxe":
-        conn.save_config()
-    else:
-        conn.send_command("write memory")
-    conn.disconnect()
+    username, password = CREDENTIALS.get(platform, (SSH_USER, SSH_PASSWORD))
+    kwargs = {
+        "device_type": NETMIKO_TYPES[platform],
+        "host": host,
+        "username": username,
+        "password": password,
+    }
+    if platform != "juniper_junos":
+        kwargs["secret"] = password
+
+    conn = ConnectHandler(**kwargs)
+    try:
+        if platform != "juniper_junos":
+            conn.enable()
+        output = conn.send_config_set(
+            _config_lines(platform, config), cmd_verify=False
+        )
+        if platform == "juniper_junos":
+            output += conn.commit()
+        elif platform == "cisco_iosxe":
+            conn.save_config()
+        else:
+            conn.send_command("write memory")
+    finally:
+        conn.disconnect()
     return output
-
-
-def push_srlinux(host, config):
-    commands = "\n".join(
-        line for line in config.splitlines()
-        if line.strip() and not line.startswith("#")
-    )
-    script = f"enter candidate\n{commands}\ncommit now\n"
-    return subprocess.run(
-        ["sshpass", "-p", SRL_PASSWORD, "ssh",
-         "-o", "StrictHostKeyChecking=no", f"admin@{host}", "sr_cli"],
-        input=script, capture_output=True, text=True, check=True,
-    ).stdout
 
 
 def push_frr(container, config):
@@ -99,8 +122,6 @@ def main():
         try:
             if platform in NETMIKO_TYPES:
                 push_cli(platform, target, config)
-            elif platform == "nokia_srlinux":
-                push_srlinux(target, config)
             elif platform == "frr":
                 push_frr(target, config)
         except Exception as exc:

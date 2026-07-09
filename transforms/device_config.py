@@ -9,6 +9,10 @@ Intent is stable; renderers change.
 Renderer selection is data-driven: adding a vendor means adding one
 render function and one platform record in the SoT - the schema, the
 checks and every other renderer stay untouched.
+
+Registered renderers: IOS-XE, EOS, Junos, SR Linux, FRR. Which *shape* a
+renderer emits (provider edge vs customer edge) also follows from the
+contract graph rather than from a flag on the device.
 """
 
 import ipaddress
@@ -127,8 +131,12 @@ def parse_contracts(data):
 def _parse_contract_devices(rel):
     devices = []
     for node in _edges(rel):
+        asn = _node(node.get("asn"))
         devices.append({
             "name": _v(node["name"]),
+            # the far-side ASN: renderers whose CLI has no `remote-as
+            # external` (IOS-XE) read it off the modeled peer device
+            "asn": _v(asn["asn"]) if asn else None,
             "interfaces": [
                 {"name": _v(i["name"]), "ips": _iface_ips(i)}
                 for i in _edges(node.get("interfaces"))
@@ -167,13 +175,47 @@ def parse_security(data, device_role):
     return policies
 
 
-def loopback_ip(interfaces):
-    """First loopback-ish interface address, without the mask."""
+def loopback_iface(interfaces):
+    """First loopback-ish interface carrying an address."""
     for iface in interfaces:
         name = (iface["name"] or "").lower()
         if name.startswith(LOOPBACK_PREFIXES) and iface["ips"]:
-            return iface["ips"][0].split("/")[0]
+            return iface
     return None
+
+
+def loopback_ip(interfaces):
+    """First loopback-ish interface address, without the mask."""
+    iface = loopback_iface(interfaces)
+    return iface["ips"][0].split("/")[0] if iface else None
+
+
+def remote_asn(contract, side, device_name):
+    """ASN of a named device on one side of a contract.
+
+    A contract's ``peer_asn`` is written from the provider's point of view,
+    so a CE cannot read the provider's ASN off it. Renderers whose CLI has
+    no ``remote-as external`` (IOS-XE) read it off the modeled peer device
+    instead - still derived, never a new intent field.
+    """
+    for device in contract[side]:
+        if device["name"] == device_name:
+            return device["asn"]
+    return None
+
+
+def is_customer_side(device, contracts):
+    """True when the device only ever sits on the ``ce_devices`` side.
+
+    Dispatching on this rather than on ``role`` keeps the renderer honest:
+    the PEs are ce_devices of the core contract (they are RR *clients*) and
+    pe_devices of the tenant contract, so only a device that is never a
+    pe_device is a customer/peer endpoint.
+    """
+    name = device["name"]
+    on_ce = any(name in {d["name"] for d in c["ce_devices"]} for c in contracts)
+    on_pe = any(name in {d["name"] for d in c["pe_devices"]} for c in contracts)
+    return on_ce and not on_pe
 
 
 def edge_sessions(device, contract, local_side):
@@ -233,6 +275,82 @@ def _wildcard(prefix):
 # --------------------------------------------------------------------------
 
 def render_cisco_iosxe(device, contracts, policies):
+    """IOS-XE has two shapes in this lab.
+
+    Provider edge: VRFs, vpnv4 to the route reflector, per-tenant address
+    families. Customer edge: advertise exactly the prefixes the contract
+    authorizes and nothing else. Which one is rendered follows from the
+    contract graph, not from a flag on the device.
+    """
+    if is_customer_side(device, contracts):
+        return _iosxe_customer_edge(device, contracts)
+    return _iosxe_provider_edge(device, contracts, policies)
+
+
+def _iosxe_customer_edge(device, contracts):
+    lines = [
+        "! Compiled by InfraHub - intent artifact, do not hand-edit",
+        f"hostname {device['name']}",
+        "ip cef",
+        "!",
+    ]
+
+    for iface in device["interfaces"]:
+        if not iface["ips"]:
+            continue
+        addr = ipaddress.ip_interface(iface["ips"][0])
+        lines.append(f"interface {iface['name']}")
+        if iface["description"]:
+            lines.append(f" description {iface['description']}")
+        lines += [
+            f" ip address {addr.ip} {addr.netmask}",
+            " no shutdown",
+            "!",
+        ]
+
+    my_contracts = [
+        c for c in contracts
+        if device["name"] in {d["name"] for d in c["ce_devices"]}
+        and c["role"] in ("customer_edge", "internet_peering", "transit")
+    ]
+
+    # anchor routes so the `network` statements have something to advertise
+    v4_prefixes = []
+    for c in my_contracts:
+        for prefix in c["allowed_prefixes"]:
+            net = ipaddress.ip_network(prefix)
+            if net.version == 4:
+                v4_prefixes.append(net)
+    for net in v4_prefixes:
+        lines.append(f"ip route {net.network_address} {net.netmask} Null0")
+    lines.append("!")
+
+    if not device["asn"]:
+        return "\n".join(lines) + "\n"
+
+    lines.append(f"router bgp {device['asn']}")
+    lines.append(" bgp log-neighbor-changes")
+
+    # neighbors are declared globally on IOS-XE, activated per AF below
+    sessions = []
+    for c in my_contracts:
+        for session in edge_sessions(device, c, "ce_devices"):
+            asn = remote_asn(c, "pe_devices", session["neighbor_device"])
+            lines.append(f" neighbor {session['neighbor_ip']} remote-as {asn}")
+            sessions.append(session)
+    lines.append(" !")
+
+    lines.append(" address-family ipv4")
+    for net in v4_prefixes:
+        lines.append(f"  network {net.network_address} mask {net.netmask}")
+    for session in sessions:
+        lines.append(f"  neighbor {session['neighbor_ip']} activate")
+    lines += [" exit-address-family", "!"]
+
+    return "\n".join(lines) + "\n"
+
+
+def _iosxe_provider_edge(device, contracts, policies):
     lines = [
         f"! Compiled by InfraHub - intent artifact, do not hand-edit",
         f"hostname {device['name']}",
@@ -461,12 +579,13 @@ def render_arista_eos(device, contracts, policies):
         lines += _eos_acl(policy)
 
     # community-lists for leak protection on peering contracts
-    for c in my_peering:
-        for tenant, community in denied_communities(contracts, c):
-            lines.append(
-                f"ip community-list DENY-TENANT-{tenant.upper()} permit {community}"
-            )
-    lines.append("!")
+    community_lists = [
+        f"ip community-list DENY-TENANT-{tenant.upper()} permit {community}"
+        for c in my_peering
+        for tenant, community in denied_communities(contracts, c)
+    ]
+    if community_lists:
+        lines += community_lists + ["!"]
 
     lines.append(f"router bgp {device['asn']}")
     lines.append(f" router-id {lo}")
@@ -601,6 +720,71 @@ def _eos_acl(policy):
                 seq += 10
     lines += [f" {seq} permit ip any any", "!"]
     return lines
+
+
+def render_juniper_junos(device, contracts, policies):
+    lo_iface = loopback_iface(device["interfaces"])
+    lo_name = lo_iface["name"] if lo_iface else "lo0"
+    lo = loopback_ip(device["interfaces"])
+
+    lines = [
+        "# Compiled by InfraHub - intent artifact, do not hand-edit",
+        "# Apply with: configure; load set terminal < this file; commit",
+        f"set system host-name {device['name']}",
+    ]
+
+    for iface in device["interfaces"]:
+        if not iface["ips"]:
+            continue
+        name = iface["name"]
+        if iface["description"]:
+            lines.append(f'set interfaces {name} description "{iface["description"]}"')
+        lines.append(
+            f"set interfaces {name} unit 0 family inet address {iface['ips'][0]}"
+        )
+        if iface["role"] == "core":
+            lines.append(f"set interfaces {name} unit 0 family mpls")
+
+    lines += [
+        f"set routing-options router-id {lo}",
+        f"set routing-options autonomous-system {device['asn']}",
+    ]
+
+    core_ifaces = [
+        i for i in device["interfaces"] if i["role"] == "core" and i["ips"]
+    ]
+    for iface in core_ifaces:
+        lines.append(
+            f"set protocols ospf area 0.0.0.0 interface {iface['name']}.0 "
+            f"interface-type p2p"
+        )
+    lines.append(f"set protocols ospf area 0.0.0.0 interface {lo_name}.0 passive")
+    for iface in core_ifaces:
+        lines.append(f"set protocols mpls interface {iface['name']}.0")
+        lines.append(f"set protocols ldp interface {iface['name']}.0")
+
+    # Route-reflector role: clients derived from the core contract
+    for c in contracts:
+        if c["role"] != "core":
+            continue
+        if device["name"] not in {d["name"] for d in c["pe_devices"]}:
+            continue
+        lines += [
+            "set protocols bgp group rr-clients type internal",
+            f"set protocols bgp group rr-clients local-address {lo}",
+            f"set protocols bgp group rr-clients cluster {lo}",
+        ]
+        if "vpn-ipv4" in c["afi_safis"]:
+            lines.append(
+                "set protocols bgp group rr-clients family inet-vpn unicast"
+            )
+        for client in c["ce_devices"]:
+            client_lo = loopback_ip(client["interfaces"])
+            lines.append(
+                f"set protocols bgp group rr-clients neighbor {client_lo}"
+            )
+
+    return "\n".join(lines) + "\n"
 
 
 def render_nokia_srlinux(device, contracts, policies):
@@ -744,9 +928,12 @@ def render_frr(device, contracts, policies):
     return "\n".join(lines) + "\n"
 
 
+# nokia_srlinux has no device today; it stays registered so re-platforming a
+# node onto SR Linux is one field in the SoT and nothing here.
 RENDERERS = {
     "cisco_iosxe": render_cisco_iosxe,
     "arista_eos": render_arista_eos,
+    "juniper_junos": render_juniper_junos,
     "nokia_srlinux": render_nokia_srlinux,
     "frr": render_frr,
 }

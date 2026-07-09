@@ -58,7 +58,8 @@ def main():
 
     manufacturers = {
         name: upsert(client, "OrganizationManufacturer", name=name)
-        for name in ("Cisco Systems", "Arista Networks", "Nokia", "FRRouting")
+        for name in ("Cisco Systems", "Arista Networks", "Juniper Networks",
+                     "Nokia", "FRRouting")
     }
 
     as65010 = upsert(client, "RoutingAutonomousSystem", name="AutoNetOps",
@@ -104,16 +105,26 @@ def main():
 
     # ------------------------------------------------------------------
     # Platforms - capabilities attached HERE drive renderer + collector
-    # selection. The Cisco image has no gNMI: it claims ssh_cli only, so
-    # the observability compiler emits a CLI-scrape collector for it.
+    # selection. The Cisco IOL image has no gNMI: it claims ssh_cli and
+    # netconf, so the observability compiler would emit a CLI-scrape
+    # collector for it rather than a gNMI subscription.
+    #
+    # nokia_srlinux keeps a platform record even though no device runs it
+    # today: the renderer is still registered, so re-platforming a node
+    # onto SR Linux is a one-field change here and nothing else.
     # ------------------------------------------------------------------
     print("==> platforms")
     platforms = {}
     platform_defs = [
         ("cisco_iosxe", "Cisco Systems", "cisco_ios", "cisco_iol",
-         ["ssh_cli", "snmp", "cli_config", "mpls", "vpn_ipv4"]),
+         ["ssh_cli", "snmp", "netconf", "cli_config", "mpls", "vpn_ipv4"]),
         ("arista_eos", "Arista Networks", "arista_eos", "ceos",
-         ["gnmi", "ssh_cli", "snmp", "cli_config", "mpls", "vpn_ipv4"]),
+         ["gnmi", "gnmi_set", "netconf", "ssh_cli", "snmp", "cli_config",
+          "mpls", "vpn_ipv4"]),
+        ("juniper_junos", "Juniper Networks", "juniper_junos",
+         "juniper_vjunosrouter",
+         ["gnmi", "netconf", "ssh_cli", "snmp", "cli_config", "mpls",
+          "vpn_ipv4"]),
         ("nokia_srlinux", "Nokia", "nokia_srl", "nokia_srlinux",
          ["gnmi", "gnmi_set", "ssh_cli", "vpn_ipv4"]),
         ("frr", "FRRouting", "linux", "linux", ["cli_config"]),
@@ -159,11 +170,11 @@ def main():
     # name: (platform, role, asn, site, mgmt_ip, interfaces)
     # interface tuple: (name, kind, role, ip, description)
     device_defs = {
-        "pe-emea-01": ("cisco_iosxe", "edge", as65010, pop_a, f"{MGMT_NET}.11", [
+        "pe-emea-01": ("arista_eos", "edge", as65010, pop_a, f"{MGMT_NET}.11", [
             ("Loopback0", "virtual", None, "10.255.0.1/32", "router-id"),
-            ("Ethernet0/1", "physical", "core", "10.0.0.0/31", "to core-rr-01"),
-            ("Ethernet0/2", "physical", "cust", "10.84.255.1/30", "to ce-custc-01 [customer-c]"),
-            ("Ethernet0/3", "physical", "management", f"{OOB_NET}.11/24", "OOB"),
+            ("Ethernet1", "physical", "core", "10.0.0.0/31", "to core-rr-01"),
+            ("Ethernet2", "physical", "cust", "10.84.255.1/30", "to ce-custc-01 [customer-c]"),
+            ("Ethernet3", "physical", "management", f"{OOB_NET}.11/24", "OOB"),
         ]),
         "pe-emea-02": ("arista_eos", "edge", as65010, pop_b, f"{MGMT_NET}.12", [
             ("Loopback0", "virtual", None, "10.255.0.2/32", "router-id"),
@@ -172,19 +183,19 @@ def main():
             ("Ethernet3", "physical", "peering", "203.0.113.0/31", "to peer-inet-01"),
             ("Ethernet4", "physical", "management", f"{OOB_NET}.12/24", "OOB"),
         ]),
-        "core-rr-01": ("nokia_srlinux", "core", as65010, pop_a, f"{MGMT_NET}.13", [
-            ("system0", "virtual", None, "10.255.0.3/32", "router-id"),
-            ("ethernet-1/1", "physical", "core", "10.0.0.1/31", "to pe-emea-01"),
-            ("ethernet-1/2", "physical", "core", "10.0.0.3/31", "to pe-emea-02"),
-            ("ethernet-1/10", "physical", "management", f"{OOB_NET}.13/24", "OOB"),
+        "core-rr-01": ("juniper_junos", "core", as65010, pop_a, f"{MGMT_NET}.13", [
+            ("lo0", "virtual", None, "10.255.0.3/32", "router-id"),
+            ("ge-0/0/0", "physical", "core", "10.0.0.1/31", "to pe-emea-01"),
+            ("ge-0/0/1", "physical", "core", "10.0.0.3/31", "to pe-emea-02"),
+            ("ge-0/0/2", "physical", "management", f"{OOB_NET}.13/24", "OOB"),
         ]),
-        "ce-custc-01": ("frr", "cpe", as65123, pop_a, f"{MGMT_NET}.21", [
-            ("eth1", "physical", "cust", "10.84.255.2/30", "to pe-emea-01"),
-            ("eth2", "physical", "management", f"{OOB_NET}.21/24", "OOB"),
+        "ce-custc-01": ("cisco_iosxe", "cpe", as65123, pop_a, f"{MGMT_NET}.21", [
+            ("Ethernet0/1", "physical", "cust", "10.84.255.2/30", "to pe-emea-01"),
+            ("Ethernet0/2", "physical", "management", f"{OOB_NET}.21/24", "OOB"),
         ]),
-        "ce-custc-02": ("frr", "cpe", as65123, pop_b, f"{MGMT_NET}.22", [
-            ("eth1", "physical", "cust", "10.84.255.6/30", "to pe-emea-02"),
-            ("eth2", "physical", "management", f"{OOB_NET}.22/24", "OOB"),
+        "ce-custc-02": ("cisco_iosxe", "cpe", as65123, pop_b, f"{MGMT_NET}.22", [
+            ("Ethernet0/1", "physical", "cust", "10.84.255.6/30", "to pe-emea-02"),
+            ("Ethernet0/2", "physical", "management", f"{OOB_NET}.22/24", "OOB"),
         ]),
         "peer-inet-01": ("frr", "edge", as64999, pop_b, f"{MGMT_NET}.31", [
             ("eth1", "physical", "peering", "203.0.113.1/31", "to pe-emea-02"),
@@ -224,17 +235,17 @@ def main():
 
     print("==> cabling (core, customer, peering and OOB planes)")
     cables = [
-        (("pe-emea-01", "Ethernet0/1"), ("core-rr-01", "ethernet-1/1")),
-        (("pe-emea-02", "Ethernet1"), ("core-rr-01", "ethernet-1/2")),
-        (("ce-custc-01", "eth1"), ("pe-emea-01", "Ethernet0/2")),
-        (("ce-custc-02", "eth1"), ("pe-emea-02", "Ethernet2")),
+        (("pe-emea-01", "Ethernet1"), ("core-rr-01", "ge-0/0/0")),
+        (("pe-emea-02", "Ethernet1"), ("core-rr-01", "ge-0/0/1")),
+        (("ce-custc-01", "Ethernet0/1"), ("pe-emea-01", "Ethernet2")),
+        (("ce-custc-02", "Ethernet0/1"), ("pe-emea-02", "Ethernet2")),
         (("peer-inet-01", "eth1"), ("pe-emea-02", "Ethernet3")),
         # the OOB plane - this is what makes the oob_reachability check pass
-        (("pe-emea-01", "Ethernet0/3"), ("oob-sw-01", "eth1")),
+        (("pe-emea-01", "Ethernet3"), ("oob-sw-01", "eth1")),
         (("pe-emea-02", "Ethernet4"), ("oob-sw-01", "eth2")),
-        (("core-rr-01", "ethernet-1/10"), ("oob-sw-01", "eth3")),
-        (("ce-custc-01", "eth2"), ("oob-sw-01", "eth4")),
-        (("ce-custc-02", "eth2"), ("oob-sw-01", "eth5")),
+        (("core-rr-01", "ge-0/0/2"), ("oob-sw-01", "eth3")),
+        (("ce-custc-01", "Ethernet0/2"), ("oob-sw-01", "eth4")),
+        (("ce-custc-02", "Ethernet0/2"), ("oob-sw-01", "eth5")),
         (("peer-inet-01", "eth2"), ("oob-sw-01", "eth6")),
     ]
     for end_a, end_b in cables:

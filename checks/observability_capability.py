@@ -2,11 +2,15 @@
 
 Every required signal scoped to a contract must be collectable on every
 PE the contract attaches to: the PE's platform must claim at least one
-telemetry capability (gnmi, snmp or ssh_cli). This is where "the Cisco
-has no gNMI" surfaces as *data*, not tribal knowledge - the platform
-claims ssh_cli, so the observability compiler emits a CLI-scrape
-collector instead of a gNMI subscription. A platform claiming nothing
-fails the merge.
+telemetry capability (gnmi, snmp or ssh_cli). What a platform can be
+observed *with* is data in the SoT, not tribal knowledge - the cEOS PEs
+claim gnmi and compile a subscription, while a platform claiming only
+ssh_cli (the Cisco IOL CEs) would compile a CLI-scrape collector for the
+same signal. A platform claiming nothing fails the merge.
+
+Note the scope: this guards pe_devices, because that is where the signals
+are scoped. Point a signal at ce_devices and the CEs come under the same
+guard automatically.
 """
 
 from infrahub_sdk.checks import InfrahubCheck

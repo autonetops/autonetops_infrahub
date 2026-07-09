@@ -19,7 +19,7 @@ telegraf → Prometheus → Grafana prove it.
    artifacts: device configs | expectations | telegraf inputs
               prometheus rules | grafana dashboards
      v  fetch_artifacts.py + deploy_configs.py   (execution stand-in)
-   containerlab: cisco IOL PE + cEOS PE + SR Linux RR + FRR CEs/peer + OOB bridge
+   containerlab: 2x cEOS PE + vJunos RR + cisco IOL CEs + FRR peer + OOB bridge
      v  evidence
    telegraf (gNMI or CLI-scrape, capability-driven) -> Prometheus -> Grafana
 ```
@@ -98,24 +98,37 @@ the tenant doesn't own that space.
 **Exercise 3c (quiet degradation):** remove `pe-emea-02` from the contract's
 `pe_devices`. `tenant_redundancy` blocks the merge: 1 PE < required 2.
 
-**Exercise 3d (unobservable = unmergeable):** remove the `gnmi` and `ssh_cli`
-capabilities from the `cisco_iosxe` platform. `observability_capability`
-fails: the required signals can no longer be collected from `pe-emea-01`.
+**Exercise 3d (unobservable = unmergeable):** strip *every* telemetry
+capability — `gnmi`, `ssh_cli` **and** `snmp` — from the `arista_eos`
+platform. `observability_capability` fails: the required signals can no
+longer be collected from either PE. Leave `snmp` on and the check still
+passes; the invariant is "some telemetry capability", not "gNMI".
 
-## Phase 4 — Compilation: one intent, three vendors
+## Phase 4 — Compilation: one intent, four vendors
 
 Generate/inspect artifacts (UI → Artifacts, or a Proposed Change's artifact
 diff). For the *same* `custc-ce-to-pe` contract:
 
-- `pe-emea-01` gets IOS-XE: `vrf definition`, `route-map CUSTC-CE-TO-PE-IN`,
-  `maximum-prefix 200`
-- `pe-emea-02` gets EOS: `vrf instance`, `route-map ... in`, `maximum-routes`,
-  plus — from the *peering* contract — `route-map INET-PEERING-EMEA-OUT deny`
+- `pe-emea-01` gets EOS: `vrf instance`, `route-map CUSTC-CE-TO-PE-IN`,
+  `maximum-routes 200`
+- `pe-emea-02` gets EOS too — but not the *same* config: it also carries the
+  peering contract, so it alone grows `route-map INET-PEERING-EMEA-OUT deny`
   matching customer-c's community. **That deny clause is the no-leak invariant
-  materialized.**
-- `core-rr-01` gets SR Linux set-commands: vpn-ipv4 RR with the PEs as clients,
-  derived from the `ibgp-core-rr` contract + modeled loopbacks.
-- CEs/peer get FRR: they advertise exactly `allowed_prefixes`, nothing else.
+  materialized.** Same renderer, same vendor, different intent attached.
+- `core-rr-01` gets Junos set-commands: `family inet-vpn unicast` RR with the
+  PEs as `cluster` clients, derived from the `ibgp-core-rr` contract + modeled
+  loopbacks.
+- CEs get IOS-XE, the peer gets FRR: both advertise exactly
+  `allowed_prefixes`, nothing else. Note the CE's `neighbor … remote-as 65010`
+  — IOS-XE has no `remote-as external`, so the renderer reads the provider ASN
+  off the modeled PE on the far end of the cable. Still derived, still no new
+  intent field.
+
+The IOS-XE renderer knows two shapes — provider edge (VRFs, vpnv4 to the RR)
+and customer edge (advertise the authorized prefixes, nothing else). Which one
+a device gets is read off the contract graph, not off a flag: a device that is
+never a `pe_device` is a customer endpoint. Re-platform a CE onto any vendor
+and the same rule picks the same shape.
 
 Note what you did NOT write: sessions. They're derived from contract +
 cabling. Change a cable in the SoT and the sessions everywhere recompile.
@@ -128,8 +141,10 @@ both vendors *before* merge.
 
 Open the `contract-expectations` artifact for `custc-ce-to-pe`. It encodes:
 
-- sessions that must be `established` (with the *collector* for each device:
-  `gnmi` for the cEOS PE, `cli_scrape` for the Cisco — capability-driven)
+- sessions that must be `established`, each carrying the *collector* that will
+  observe it (`observedVia: gnmi` for both cEOS PEs) — picked from the
+  platform's capabilities, not written by hand. Re-platform a PE onto a box
+  without gNMI and this field flips to `cli_scrape` on its own.
 - route counts as **ranges** (`<= 200`), never exact values
 - forbidden behavior (`export_prefixes_from_tenant(customer-c)` toward
   internet-peers/transit)
@@ -142,12 +157,18 @@ through the same Proposed Change flow as everything else.
 
 Inspect the `telegraf-inputs` artifacts:
 
-- `pe-emea-02` / `core-rr-01`: `[[inputs.gnmi]]` subscriptions, one per
-  signal, sample interval straight from `frequency_seconds`.
-- `pe-emea-01` (Cisco, no gNMI): `[[inputs.exec]]` running
-  `cli_bgp_telemetry.py` over SSH — same signals, different evidence pipeline.
-  **The intent did not change; the platform's capabilities selected the
-  collector.**
+- `pe-emea-01` / `pe-emea-02` (cEOS, gNMI-native): `[[inputs.gnmi]]`
+  subscriptions on `:6030`, one per signal, sample interval straight from
+  `frequency_seconds`.
+- `core-rr-01` and the CEs: `[[inputs.ping]]` only. No contract-scoped signal
+  points at them — signals attach to a contract's `pe_devices`, and neither the
+  RR nor a CE is one.
+- Nothing compiles to `[[inputs.exec]]` today, because no PE lacks gNMI. To see
+  the CLI-scrape arm, scope a signal at `ce_devices` (one field in
+  `queries/telemetry_collector.gql`, one `|` in the transform): the Cisco CEs
+  claim `ssh_cli` and no `gnmi`, so they compile `cli_bgp_telemetry.py` over
+  SSH instead. **The intent would not change; the platform's capabilities
+  select the collector.**
 
 And `prometheus-rules` per contract: session-down (sev2, `for: 60s` from the
 condition DSL), route-count > 200 (sev2), export-violation (sev1), plus a
@@ -180,11 +201,11 @@ peering contract jumps past the authorized bound; the compiled
 `inet-peering-emea-export-violation` alert fires. Intent declared it,
 expectations encoded it, Prometheus proved it.
 
-**Drift 2 — max-prefix (sev2).** On `ce-custc-01` (FRR), advertise 250 extra
-prefixes inside 10.84.0.0/16. Watch `custc-ce-to-pe-route-count-exceeded`
-fire, and the PE's `maximum-prefix` warning kick in.
+**Drift 2 — max-prefix (sev2).** On `ce-custc-01` (IOS-XE), advertise 250
+extra prefixes inside 10.84.0.0/16. Watch `custc-ce-to-pe-route-count-exceeded`
+fire, and the PE's `maximum-routes` warning kick in.
 
-**Drift 3 — redundancy holds.** Shut `ce-custc-01:eth1`. Reachability intent
+**Drift 3 — redundancy holds.** Shut `ce-custc-01:Ethernet0/1`. Reachability intent
 survives (the tenant is dual-homed by *checked* invariant), session-down fires
 sev2 for the failed attachment, and Grafana shows convergence within the
 declared 30s budget.
@@ -216,9 +237,15 @@ purpose:
 - Control-plane fidelity is the goal; **dataplane MPLS forwarding on cEOS
   containers is limited** — expectations validate BGP/policy facts, which is
   where the intent story lives anyway.
-- If your SR Linux container build rejects the `vpn-ipv4` AF, switch the node
-  type, or re-platform `core-rr-01` to FRR: one platform record + renderer
-  selection change, zero intent changes. That *is* the lesson.
+- **`core-rr-01` is the expensive node.** vJunos-router wants ~4 GB RAM and
+  takes several minutes to boot. If it will not start, or its `inet-vpn`
+  family misbehaves, re-platform it: `render_nokia_srlinux` is still
+  registered, so switching `core-rr-01` to the `nokia_srlinux` platform is one
+  field in the SoT and one `kind:` in the topology, with zero intent changes.
+  That *is* the lesson.
+- Both PEs are cEOS, so the CLI-scrape collector is currently unexercised.
+  It is kept because it is the correct fallback for the gNMI-less Cisco CEs —
+  see Phase 6.
 - gNMI field naming varies by OS version; the starlark normalizer in
   `monitoring/telegraf/telegraf.conf` covers the common cases and is the one
   place to extend.

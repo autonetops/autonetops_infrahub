@@ -10,6 +10,11 @@ device, selected by what the device's platform claims:
     (always) -> telegraf [[inputs.ping]] for the fleet-wide
                 device_reachability signal via the OOB address
 
+Signals are scoped to a contract's PE devices, and both PEs are cEOS, so
+today every scoped signal compiles to gNMI. The CLI-scrape arm is what the
+gNMI-less Cisco CEs would get the moment a signal is pointed at
+``ce_devices`` - one query field, no intent change.
+
 Nothing in the intent names a collector. Change a platform's
 capabilities in the SoT and the compiled observability changes with it -
 no schema change, no template fork.
@@ -37,6 +42,17 @@ GNMI_PATHS = {
             "/interfaces/interface/state/counters",
         ],
     },
+    "juniper_junos": {
+        "bgp_session_state": [
+            "/network-instances/network-instance/protocols/protocol/bgp/neighbors/neighbor/state/session-state",
+        ],
+        "bgp_route_count": [
+            "/network-instances/network-instance/protocols/protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/state/prefixes",
+        ],
+        "interface_errors": [
+            "/interfaces/interface/state/counters",
+        ],
+    },
     "nokia_srlinux": {
         "bgp_session_state": [
             "/network-instance[name=default]/protocols/bgp/neighbor[peer-address=*]/session-state",
@@ -49,6 +65,15 @@ GNMI_PATHS = {
         ],
     },
 }
+
+# gNMI listener port and TLS posture per platform - renderer knowledge, like
+# the paths above. Junos serves gNMI from jsd on 9339.
+GNMI_TRANSPORT = {
+    "arista_eos": {"port": 6030, "tls": "  tls_enable = false"},
+    "juniper_junos": {"port": 9339, "tls": "  tls_enable = false"},
+    "nokia_srlinux": {"port": 57400, "tls": "  insecure_skip_verify = true"},
+}
+DEFAULT_GNMI_TRANSPORT = {"port": 57400, "tls": "  tls_enable = false"}
 
 
 def _v(attr):
@@ -142,23 +167,19 @@ class TelemetryCollectorTransform(InfrahubTransform):
     @staticmethod
     def _gnmi_block(name, platform_name, mgmt_ip, signals):
         paths = {}
-        interval = min(s["frequency"] for s in signals)
         for s in signals:
             for path in GNMI_PATHS.get(platform_name, {}).get(s["signal"], []):
                 paths.setdefault(path, s)
 
+        transport = GNMI_TRANSPORT.get(platform_name, DEFAULT_GNMI_TRANSPORT)
         lines = [
             "[[inputs.gnmi]]",
-            f'  addresses = ["{mgmt_ip}:6030"]'
-            if platform_name == "arista_eos"
-            else f'  addresses = ["{mgmt_ip}:57400"]',
+            f'  addresses = ["{mgmt_ip}:{transport["port"]}"]',
             '  username = "${GNMI_USER}"',
             '  password = "${GNMI_PASSWORD}"',
             f'  encoding = "json_ietf"',
             f'  redial = "10s"',
-            "  insecure_skip_verify = true"
-            if platform_name == "nokia_srlinux"
-            else "  tls_enable = false",
+            transport["tls"],
             "  [inputs.gnmi.tags]",
             f'    device = "{name}"',
         ]

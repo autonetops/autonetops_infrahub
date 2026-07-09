@@ -2,10 +2,14 @@
 """CLI-scrape telemetry collector for platforms without gNMI.
 
 The intent model requires bgp_session_state / bgp_route_count evidence
-from every attachment PE. The Cisco IOS-XE image in this lab exposes no
-gNMI, so its platform claims only the ``ssh_cli`` telemetry capability -
-and the observability compiler emits a telegraf [[inputs.exec]] that
-runs this script instead of a gNMI subscription.
+from every device a signal is scoped to. When that device's platform
+claims ``ssh_cli`` but not ``gnmi``, the observability compiler emits a
+telegraf [[inputs.exec]] running this script instead of a gNMI
+subscription - same signals, different evidence pipeline.
+
+Both PEs are currently cEOS and speak gNMI, so nothing compiles to this
+collector today. It is the path the gNMI-less Cisco IOL CEs would take
+the moment a signal is scoped to ``ce_devices``.
 
 Emits influx line protocol on stdout, normalized to the same metric
 names the gNMI pipeline produces:
