@@ -1,0 +1,83 @@
+query grafana_dashboard($tenant: String!) {
+  IntentTenant(name__value: $tenant) {
+    edges {
+      node {
+        name {
+          value
+        }
+        description {
+          value
+        }
+        environment {
+          value
+        }
+        owner {
+          value
+        }
+      }
+    }
+  }
+  IntentRoutingContract {
+    edges {
+      node {
+        name {
+          value
+        }
+        role {
+          value
+        }
+        max_prefixes_ipv4 {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        pe_devices {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentObservabilitySignal {
+    edges {
+      node {
+        name {
+          value
+        }
+        signal {
+          value
+        }
+        severity {
+          value
+        }
+        condition {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        contract {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

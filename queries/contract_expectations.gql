@@ -1,0 +1,202 @@
+query contract_expectations($contract: String!) {
+  IntentRoutingContract(name__value: $contract) {
+    edges {
+      node {
+        name {
+          value
+        }
+        role {
+          value
+        }
+        peer_asn {
+          value
+        }
+        afi_safis {
+          value
+        }
+        max_prefixes_ipv4 {
+          value
+        }
+        max_prefixes_ipv6 {
+          value
+        }
+        require_communities {
+          value
+        }
+        attach_communities {
+          value
+        }
+        zone {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        export_deny_zones {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+            tenant_community {
+              value
+            }
+          }
+        }
+        allowed_prefixes {
+          edges {
+            node {
+              prefix {
+                value
+              }
+            }
+          }
+        }
+        invariants {
+          edges {
+            node {
+              invariant_type {
+                value
+              }
+              description {
+                value
+              }
+            }
+          }
+        }
+        ce_devices {
+          edges {
+            node {
+              name {
+                value
+              }
+            }
+          }
+        }
+        pe_devices {
+          edges {
+            node {
+              name {
+                value
+              }
+              platform {
+                node {
+                  name {
+                    value
+                  }
+                  capabilities {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        category {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              interfaces {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    role {
+                      value
+                    }
+                    ... on InterfaceLayer3 {
+                      ip_addresses {
+                        edges {
+                          node {
+                            address {
+                              value
+                            }
+                          }
+                        }
+                      }
+                    }
+                    ... on DcimEndpoint {
+                      connector {
+                        node {
+                          connected_endpoints {
+                            edges {
+                              node {
+                                ... on DcimInterface {
+                                  device {
+                                    node {
+                                      name {
+                                        value
+                                      }
+                                    }
+                                  }
+                                }
+                                ... on InterfaceLayer3 {
+                                  ip_addresses {
+                                    edges {
+                                      node {
+                                        address {
+                                          value
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentObservabilitySignal {
+    edges {
+      node {
+        name {
+          value
+        }
+        signal {
+          value
+        }
+        direction {
+          value
+        }
+        frequency_seconds {
+          value
+        }
+        severity {
+          value
+        }
+        condition {
+          value
+        }
+        contract {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

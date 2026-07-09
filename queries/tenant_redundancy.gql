@@ -1,0 +1,75 @@
+query tenant_redundancy {
+  IntentReliability {
+    edges {
+      node {
+        name {
+          value
+        }
+        min_pe_attachments {
+          value
+        }
+        require_distinct_failure_domains {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentReachability {
+    edges {
+      node {
+        name {
+          value
+        }
+        require_redundancy {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+  IntentRoutingContract(role__value: "customer_edge") {
+    edges {
+      node {
+        name {
+          value
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        pe_devices {
+          edges {
+            node {
+              name {
+                value
+              }
+              ... on DcimDevice {
+                location {
+                  node {
+                    display_label
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

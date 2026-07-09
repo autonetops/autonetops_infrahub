@@ -1,0 +1,89 @@
+# Intent lab topology - mirrors the InfraHub inventory 1:1
+# (scripts/bootstrap.py). Device names, interface names, addressing and
+# the OOB plane in this file all exist as modeled objects in the SoT.
+#
+# Vendor mix is deliberate:
+#   pe-emea-01  Cisco IOS-XE (IOL) - NO gNMI: telemetry is CLI-scraped
+#   pe-emea-02  Arista cEOS        - gNMI-native
+#   core-rr-01  Nokia SR Linux     - gNMI-native, vpn-ipv4 route reflector
+#   ce-*/peer-* FRR                - customer & internet-peer endpoints
+#   oob-sw-01   Linux bridge       - the modeled OOB management plane
+#
+# Image notes:
+#   - cisco_iol requires the IOL image imported via vrnetlab
+#     (https://containerlab.dev/manual/kinds/cisco_iol/)
+#   - ceos requires the image downloaded from arista.com
+#   - if the SR Linux container build rejects the vpn-ipv4 AF, swap the
+#     type (ixrd3l -> ixr6e) or re-point the platform's renderer to FRR:
+#     the intent does not change, only the renderer target.
+
+name: intent-lab
+
+mgmt:
+  network: intent-lab-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+  kinds:
+    cisco_iol:
+      image: vrnetlab/cisco_iol:17.12.01
+    ceos:
+      image: ceos:4.32.2F
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:24.10.1
+      type: ixrd3l
+    linux:
+      image: quay.io/frrouting/frr:10.1.0
+
+  nodes:
+    pe-emea-01:
+      kind: cisco_iol
+      mgmt-ipv4: 172.20.20.11
+    pe-emea-02:
+      kind: ceos
+      mgmt-ipv4: 172.20.20.12
+    core-rr-01:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.13
+    ce-custc-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.21
+      binds:
+        - ./frr/daemons:/etc/frr/daemons:ro
+    ce-custc-02:
+      kind: linux
+      mgmt-ipv4: 172.20.20.22
+      binds:
+        - ./frr/daemons:/etc/frr/daemons:ro
+    peer-inet-01:
+      kind: linux
+      mgmt-ipv4: 172.20.20.31
+      binds:
+        - ./frr/daemons:/etc/frr/daemons:ro
+    oob-sw-01:
+      kind: linux
+      image: alpine:3.20
+      mgmt-ipv4: 172.20.20.41
+      exec:
+        # plain L2 bridge across all OOB ports
+        - ip link add br-oob type bridge
+        - ip link set br-oob up
+        - sh -c 'for i in 1 2 3 4 5 6; do ip link set eth$i master br-oob && ip link set eth$i up; done'
+
+  links:
+    # core plane
+    - endpoints: ["pe-emea-01:Ethernet0/1", "core-rr-01:e1-1"]
+    - endpoints: ["pe-emea-02:eth1", "core-rr-01:e1-2"]
+    # customer plane (dual-homed tenant: one CE per POP/PE)
+    - endpoints: ["ce-custc-01:eth1", "pe-emea-01:Ethernet0/2"]
+    - endpoints: ["ce-custc-02:eth1", "pe-emea-02:eth2"]
+    # internet peering plane
+    - endpoints: ["peer-inet-01:eth1", "pe-emea-02:eth3"]
+    # OOB management plane - modeled in the SoT, verified by the
+    # oob_reachability check, exercised by the device_reachability signal
+    - endpoints: ["pe-emea-01:Ethernet0/3", "oob-sw-01:eth1"]
+    - endpoints: ["pe-emea-02:eth4", "oob-sw-01:eth2"]
+    - endpoints: ["core-rr-01:e1-10", "oob-sw-01:eth3"]
+    - endpoints: ["ce-custc-01:eth2", "oob-sw-01:eth4"]
+    - endpoints: ["ce-custc-02:eth2", "oob-sw-01:eth5"]
+    - endpoints: ["peer-inet-01:eth2", "oob-sw-01:eth6"]

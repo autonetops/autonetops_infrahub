@@ -1,0 +1,52 @@
+query contract_prefix_authorization($contract: String!) {
+  IntentRoutingContract(name__value: $contract) {
+    edges {
+      node {
+        name {
+          value
+        }
+        allowed_prefixes {
+          edges {
+            node {
+              prefix {
+                value
+              }
+            }
+          }
+        }
+        tenant {
+          node {
+            name {
+              value
+            }
+            vrfs {
+              edges {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IpamPrefix {
+    edges {
+      node {
+        prefix {
+          value
+        }
+        vrf {
+          node {
+            name {
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}
