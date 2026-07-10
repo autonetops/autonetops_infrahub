@@ -140,14 +140,22 @@ def push_srl(container, config):
          "cat > /tmp/infrahub-config.cli"],
         input="\n".join(lines), capture_output=True, text=True, check=True,
     )
+    # A *private* candidate isolates this push. SR Linux's shared default
+    # candidate (`-e`) keeps a partially-applied `source` across sr_cli
+    # invocations, so one failed push poisons the next (its leftover lines
+    # ride along into the following commit); `-E private` is discarded when
+    # the process exits without committing.
     result = subprocess.run(
-        ["docker", "exec", container, "sr_cli", "-e",
+        ["docker", "exec", container, "sr_cli", "-E", "private",
          "--post-command", "commit save", "source /tmp/infrahub-config.cli"],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=False,
     )
     out = result.stdout + result.stderr
-    # sr_cli exits 0 even on a parse/commit failure, so scan the output for
-    # the commit confirmation and for SR Linux's error phrasings
+    # check=False above: sr_cli exits non-zero on a source parse error but 0
+    # on some commit-time failures, so the exit code alone is unreliable.
+    # Scan the output for the commit confirmation and SR Linux's error
+    # phrasings instead - this also surfaces sr_cli's own message (e.g.
+    # "Failed to parse value 'None'") rather than a bare CalledProcessError.
     low = out.lower()
     markers = ("error", "unknown token", "invalid value", "failed")
     if "committed" not in low or any(m in low for m in markers):
