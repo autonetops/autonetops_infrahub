@@ -14,8 +14,8 @@ full observability stack.
 queries/            GraphQL read-contracts for checks and compilers
 checks/             merge-gating invariants (no-leak, prefix-auth, redundancy,
                     OOB reachability, observability capability)
-transforms/         compilers: device configs (EOS / Junos / IOS-XE / FRR,
-                    plus SR Linux), ContractExpectations, telegraf inputs,
+transforms/         compilers: device configs (EOS / SR Linux / IOS-XE / FRR,
+                    plus Junos), ContractExpectations, telegraf inputs,
                     Prometheus rules, Grafana dashboards
 scripts/            bootstrap data, artifact fetcher, config pusher,
                     CLI-scrape telemetry collector (for gNMI-less platforms)

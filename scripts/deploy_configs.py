@@ -7,6 +7,7 @@ selected per platform - the same capability-driven dispatch the
 compilers use, at the delivery stage:
 
     arista_eos / cisco_iosxe -> SSH CLI (netmiko)
+    nokia_srlinux            -> SSH CLI (netmiko), `set` lines + commit
     juniper_junos            -> SSH CLI (netmiko), `set` lines + commit
     frr                      -> docker exec vtysh (no SSH daemon needed)
 
@@ -36,12 +37,15 @@ SSH_PASSWORD = os.environ.get("SSH_PASSWORD", "admin")
 # containerlab seeds vJunos with admin/admin@123
 JUNOS_USER = os.environ.get("JUNOS_USER", "admin")
 JUNOS_PASSWORD = os.environ.get("JUNOS_PASSWORD", "admin@123")
+# ... and SR Linux with admin/NokiaSrl1!
+SRL_USER = os.environ.get("SRL_USER", "admin")
+SRL_PASSWORD = os.environ.get("SRL_PASSWORD", "NokiaSrl1!")
 
 # device -> (platform, mgmt address / container name)
 INVENTORY = {
     "pe-emea-01": ("arista_eos", "172.20.20.11"),
     "pe-emea-02": ("arista_eos", "172.20.20.12"),
-    "core-rr-01": ("juniper_junos", "172.20.20.13"),
+    "core-rr-01": ("nokia_srlinux", "172.20.20.13"),
     "ce-custc-01": ("cisco_iosxe", "172.20.20.21"),
     "ce-custc-02": ("cisco_iosxe", "172.20.20.22"),
     "peer-inet-01": ("frr", "clab-intent-lab-peer-inet-01"),
@@ -50,18 +54,25 @@ INVENTORY = {
 NETMIKO_TYPES = {
     "cisco_iosxe": "cisco_ios",
     "arista_eos": "arista_eos",
+    "nokia_srlinux": "nokia_srl",
     "juniper_junos": "juniper_junos",
 }
 
+# platforms whose config is a candidate that has to be committed, and
+# whose drivers therefore have no enable mode
+CANDIDATE_PLATFORMS = ("nokia_srlinux", "juniper_junos")
+
 CREDENTIALS = {
+    "nokia_srlinux": (SRL_USER, SRL_PASSWORD),
     "juniper_junos": (JUNOS_USER, JUNOS_PASSWORD),
 }
 
 
 def _config_lines(platform, config):
-    """Strip the artifact's comment header - Junos treats a bare `#` line
-    as a comment only in a config file, not at the CLI prompt."""
-    if platform == "juniper_junos":
+    """Strip the artifact's comment header - Junos and sr_cli both treat a
+    bare `#` line as a comment only in a config file, not at the CLI
+    prompt."""
+    if platform in CANDIDATE_PLATFORMS:
         return [
             line for line in config.splitlines()
             if line.strip() and not line.startswith("#")
@@ -77,18 +88,23 @@ def push_cli(platform, host, config):
         "username": username,
         "password": password,
     }
-    if platform != "juniper_junos":
+    candidate = platform in CANDIDATE_PLATFORMS
+    if not candidate:
         kwargs["secret"] = password
 
     conn = ConnectHandler(**kwargs)
     try:
-        if platform != "juniper_junos":
+        if not candidate:
             conn.enable()
         output = conn.send_config_set(
             _config_lines(platform, config), cmd_verify=False
         )
-        if platform == "juniper_junos":
+        if candidate:
+            # nokia_srl commits with `commit stay`, juniper_junos with
+            # `commit` - netmiko owns that difference
             output += conn.commit()
+            if platform == "nokia_srlinux":
+                conn.save_config()  # `save startup`
         elif platform == "cisco_iosxe":
             conn.save_config()
         else:

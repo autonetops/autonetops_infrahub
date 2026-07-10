@@ -67,11 +67,16 @@ GNMI_PATHS = {
 }
 
 # gNMI listener port and TLS posture per platform - renderer knowledge, like
-# the paths above. Junos serves gNMI from jsd on 9339.
+# the paths above. Junos serves gNMI from jsd on 9339; SR Linux serves it on
+# 57400 behind a self-signed profile, so the collector must speak TLS and
+# skip verification.
 GNMI_TRANSPORT = {
     "arista_eos": {"port": 6030, "tls": "  tls_enable = false"},
     "juniper_junos": {"port": 9339, "tls": "  tls_enable = false"},
-    "nokia_srlinux": {"port": 57400, "tls": "  insecure_skip_verify = true"},
+    "nokia_srlinux": {
+        "port": 57400,
+        "tls": "  tls_enable = true\n  insecure_skip_verify = true",
+    },
 }
 DEFAULT_GNMI_TRANSPORT = {"port": 57400, "tls": "  tls_enable = false"}
 

@@ -10,9 +10,15 @@ Renderer selection is data-driven: adding a vendor means adding one
 render function and one platform record in the SoT - the schema, the
 checks and every other renderer stay untouched.
 
-Registered renderers: IOS-XE, EOS, Junos, SR Linux, FRR. Which *shape* a
+Registered renderers: IOS-XE, EOS, SR Linux, Junos, FRR. Which *shape* a
 renderer emits (provider edge vs customer edge) also follows from the
 contract graph rather than from a flag on the device.
+
+``core-rr-01`` was a vJunos router until the lab had to run on hosts
+without CPU virtualization; it is SR Linux now. Nothing in the intent
+model moved - one `DcimPlatform` field in the SoT did. The Junos renderer
+below stays registered and unchanged, which is what makes moving back a
+one-field edit rather than a rewrite.
 """
 
 import ipaddress
@@ -20,6 +26,23 @@ import ipaddress
 from infrahub_sdk.transforms import InfrahubTransform
 
 LOOPBACK_PREFIXES = ("loopback", "system", "lo")
+
+# SR Linux spells the BGP address families differently from the intent
+# vocabulary: a contract says `vpn-ipv4`, the box says
+# `l3vpn-ipv4-unicast`. That translation is renderer-owned vendor
+# knowledge - it must never leak back into IntentRoutingContract.
+SRL_AFI_SAFI = {
+    "ipv4-unicast": "ipv4-unicast",
+    "ipv6-unicast": "ipv6-unicast",
+    "vpn-ipv4": "l3vpn-ipv4-unicast",
+    "vpn-ipv6": "l3vpn-ipv6-unicast",
+}
+
+# LDP on SR Linux refuses to start without a dynamic label range to draw
+# from, and the range is not derivable from intent - it is a box-local
+# resource, like a line number.
+SRL_LABEL_BLOCK = "ldp-labels"
+SRL_LABEL_RANGE = (10000, 20000)
 
 
 # --------------------------------------------------------------------------
@@ -788,57 +811,93 @@ def render_juniper_junos(device, contracts, policies):
 
 
 def render_nokia_srlinux(device, contracts, policies):
+    """SR Linux, the vpn-ipv4 route reflector in this lab.
+
+    LDP is emitted only where the platform claims the ``mpls`` capability.
+    No contract asks for LDP - it is a mechanism this renderer picks to
+    satisfy an MPLS forwarding plane, so a platform that cannot run it
+    simply gets a config without it.
+
+    The l3vpn address family is the opposite case: ``afi_safis`` names it
+    in the contract, so it is always emitted. Point this renderer at a
+    chassis that has no l3vpn support (any 7220 IXR fixed-form box) and
+    the commit fails - loudly, which is correct. Intent that the hardware
+    cannot honor is a violation to surface, not a line to drop.
+    """
     lo = loopback_ip(device["interfaces"])
+    lo_iface = loopback_iface(device["interfaces"])
+    core_ifaces = [
+        i for i in device["interfaces"] if i["role"] == "core" and i["ips"]
+    ]
+
     lines = [
         "# Compiled by InfraHub - intent artifact, do not hand-edit",
-        "# Apply with: sr_cli --candidate-mode < this file, then commit",
+        "# Apply with: sr_cli --candidate-mode < this file, then `commit stay`",
     ]
 
     for iface in device["interfaces"]:
         if not iface["ips"]:
             continue
         name = iface["name"]
-        if name.lower().startswith("system"):
+        lines.append(f"set / interface {name} admin-state enable")
+        if iface["description"]:
             lines.append(
-                f"set / interface system0 admin-state enable subinterface 0 "
-                f"ipv4 admin-state enable address {iface['ips'][0]}"
+                f'set / interface {name} description "{iface["description"]}"'
             )
-            lines.append("set / network-instance default interface system0.0")
-        else:
-            lines.append(f"set / interface {name} admin-state enable")
-            lines.append(
-                f"set / interface {name} subinterface 0 ipv4 admin-state enable "
-                f"address {iface['ips'][0]}"
-            )
-            lines.append(f"set / network-instance default interface {name}.0")
+        lines += [
+            f"set / interface {name} subinterface 0 admin-state enable",
+            f"set / interface {name} subinterface 0 ipv4 admin-state enable",
+            f"set / interface {name} subinterface 0 ipv4 address {iface['ips'][0]}",
+        ]
 
     lines += [
-        "set / network-instance default protocols ospf instance main version ospf-v2",
-        f"set / network-instance default protocols ospf instance main router-id {lo}",
-        "set / network-instance default protocols ospf instance main admin-state enable",
+        "set / network-instance default type default",
+        "set / network-instance default admin-state enable",
     ]
     for iface in device["interfaces"]:
-        if iface["role"] == "core" and iface["ips"]:
+        if iface["ips"]:
             lines.append(
-                f"set / network-instance default protocols ospf instance main "
-                f"area 0.0.0.0 interface {iface['name']}.0 interface-type point-to-point"
+                f"set / network-instance default interface {iface['name']}.0"
             )
-    lines.append(
-        "set / network-instance default protocols ospf instance main "
-        "area 0.0.0.0 interface system0.0 passive true"
-    )
-    for iface in device["interfaces"]:
-        if iface["role"] == "core" and iface["ips"]:
-            lines.append(
-                f"set / network-instance default protocols ldp discovery interfaces "
-                f"interface {iface['name']}.0 ipv4 admin-state enable"
-            )
-    lines.append("set / network-instance default protocols ldp admin-state enable")
 
+    ospf = "set / network-instance default protocols ospf instance main"
     lines += [
-        f"set / network-instance default protocols bgp autonomous-system {device['asn']}",
-        f"set / network-instance default protocols bgp router-id {lo}",
-        "set / network-instance default protocols bgp afi-safi ipv4-unicast admin-state enable",
+        f"{ospf} admin-state enable",
+        f"{ospf} version ospf-v2",
+        f"{ospf} router-id {lo}",
+    ]
+    for iface in core_ifaces:
+        lines.append(
+            f"{ospf} area 0.0.0.0 interface {iface['name']}.0 "
+            f"interface-type point-to-point"
+        )
+    if lo_iface:
+        lines.append(f"{ospf} area 0.0.0.0 interface {lo_iface['name']}.0 passive true")
+
+    if "mpls" in device["capabilities"] and core_ifaces:
+        start, end = SRL_LABEL_RANGE
+        ldp = "set / network-instance default protocols ldp"
+        lines += [
+            f"set / system mpls label-ranges dynamic {SRL_LABEL_BLOCK} "
+            f"start-label {start} end-label {end}",
+            f"{ldp} dynamic-label-block {SRL_LABEL_BLOCK}",
+            f"{ldp} admin-state enable",
+        ]
+        for iface in core_ifaces:
+            lines.append(
+                f"{ldp} discovery interfaces interface {iface['name']}.0 "
+                f"ipv4 admin-state enable"
+            )
+
+    if not device["asn"]:
+        return "\n".join(lines) + "\n"
+
+    bgp = "set / network-instance default protocols bgp"
+    lines += [
+        f"{bgp} admin-state enable",
+        f"{bgp} autonomous-system {device['asn']}",
+        f"{bgp} router-id {lo}",
+        f"{bgp} afi-safi ipv4-unicast admin-state enable",
     ]
 
     # Route-reflector role: clients derived from the core contract
@@ -847,27 +906,32 @@ def render_nokia_srlinux(device, contracts, policies):
             continue
         if device["name"] not in {d["name"] for d in c["pe_devices"]}:
             continue
-        lines += [
-            "set / network-instance default protocols bgp afi-safi vpn-ipv4 admin-state enable",
-            "set / network-instance default protocols bgp group rr-clients peer-as "
-            + str(c["peer_asn"]),
-            f"set / network-instance default protocols bgp group rr-clients "
-            f"route-reflector cluster-id {lo}",
-            "set / network-instance default protocols bgp group rr-clients "
-            "route-reflector client true",
-            "set / network-instance default protocols bgp group rr-clients "
-            "afi-safi vpn-ipv4 admin-state enable",
-            "set / network-instance default protocols bgp group rr-clients "
-            "transport local-address " + lo,
+        families = [
+            SRL_AFI_SAFI[afi]
+            for afi in c["afi_safis"]
+            if afi in SRL_AFI_SAFI and SRL_AFI_SAFI[afi] != "ipv4-unicast"
         ]
+        for family in families:
+            lines.append(f"{bgp} afi-safi {family} admin-state enable")
+        lines += [
+            f"{bgp} group rr-clients admin-state enable",
+            f"{bgp} group rr-clients peer-as {c['peer_asn']}",
+            f"{bgp} group rr-clients route-reflector cluster-id {lo}",
+            f"{bgp} group rr-clients route-reflector client true",
+            f"{bgp} group rr-clients transport local-address {lo}",
+        ]
+        for family in families:
+            lines.append(
+                f"{bgp} group rr-clients afi-safi {family} admin-state enable"
+            )
         for client in c["ce_devices"]:
             client_lo = loopback_ip(
                 [{"name": i["name"], "ips": i["ips"]} for i in client["interfaces"]]
             )
-            lines.append(
-                f"set / network-instance default protocols bgp neighbor {client_lo} "
-                f"peer-group rr-clients"
-            )
+            lines += [
+                f"{bgp} neighbor {client_lo} admin-state enable",
+                f"{bgp} neighbor {client_lo} peer-group rr-clients",
+            ]
 
     return "\n".join(lines) + "\n"
 
@@ -928,13 +992,13 @@ def render_frr(device, contracts, policies):
     return "\n".join(lines) + "\n"
 
 
-# nokia_srlinux has no device today; it stays registered so re-platforming a
-# node onto SR Linux is one field in the SoT and nothing here.
+# juniper_junos has no device today; it stays registered so re-platforming a
+# node back onto vJunos is one field in the SoT and nothing here.
 RENDERERS = {
     "cisco_iosxe": render_cisco_iosxe,
     "arista_eos": render_arista_eos,
-    "juniper_junos": render_juniper_junos,
     "nokia_srlinux": render_nokia_srlinux,
+    "juniper_junos": render_juniper_junos,
     "frr": render_frr,
 }
 

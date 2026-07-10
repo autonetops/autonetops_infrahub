@@ -19,7 +19,7 @@ telegraf → Prometheus → Grafana prove it.
    artifacts: device configs | expectations | telegraf inputs
               prometheus rules | grafana dashboards
      v  fetch_artifacts.py + deploy_configs.py   (execution stand-in)
-   containerlab: 2x cEOS PE + vJunos RR + cisco IOL CEs + FRR peer + OOB bridge
+   containerlab: 2x cEOS PE + SR Linux RR + cisco IOL CEs + FRR peer + OOB bridge
      v  evidence
    telegraf (gNMI or CLI-scrape, capability-driven) -> Prometheus -> Grafana
 ```
@@ -53,8 +53,8 @@ Browse the schema in the UI. The things to notice:
   There is no field where "internet-peers " (trailing space) can silently
   fracture the model.
 - **`IntentRoutingContract` never names a mechanism.** No route-map, no
-  policy-options, no vendor block. Try to find a place to put a Junos knob —
-  there isn't one. That's principle A.
+  policy-options, no vendor block. Try to find a place to put an SR Linux knob
+  — there isn't one. That's principle A.
 - **`DcimPlatform.capabilities`** is where "this Cisco has no gNMI" lives as
   data. Everything downstream branches on it.
 
@@ -115,9 +115,12 @@ diff). For the *same* `custc-ce-to-pe` contract:
   peering contract, so it alone grows `route-map INET-PEERING-EMEA-OUT deny`
   matching customer-c's community. **That deny clause is the no-leak invariant
   materialized.** Same renderer, same vendor, different intent attached.
-- `core-rr-01` gets Junos set-commands: `family inet-vpn unicast` RR with the
-  PEs as `cluster` clients, derived from the `ibgp-core-rr` contract + modeled
-  loopbacks.
+- `core-rr-01` gets SR Linux set-commands: an `afi-safi l3vpn-ipv4-unicast` RR
+  with the PEs as `route-reflector client` peers, derived from the
+  `ibgp-core-rr` contract + modeled loopbacks. Note the contract says
+  `vpn-ipv4` and the box says `l3vpn-ipv4-unicast`: that translation lives in
+  the renderer's `SRL_AFI_SAFI` table, which is exactly where vendor spelling
+  belongs.
 - CEs get IOS-XE, the peer gets FRR: both advertise exactly
   `allowed_prefixes`, nothing else. Note the CE's `neighbor … remote-as 65010`
   — IOS-XE has no `remote-as external`, so the renderer reads the provider ASN
@@ -161,8 +164,12 @@ Inspect the `telegraf-inputs` artifacts:
   subscriptions on `:6030`, one per signal, sample interval straight from
   `frequency_seconds`.
 - `core-rr-01` and the CEs: `[[inputs.ping]]` only. No contract-scoped signal
-  points at them — signals attach to a contract's `pe_devices`, and neither the
-  RR nor a CE is one.
+  points at them — signals attach to a contract's `pe_devices`, and no signal
+  is scoped to `ibgp-core-rr`. Scope one there and the RR compiles a gNMI
+  subscription on `:57400` with `tls_enable = true` (SR Linux serves gNMI
+  behind a self-signed profile), against the `nokia_srlinux` native paths —
+  not the openconfig paths the cEOS PEs use. Same signal, different paths,
+  selected by platform.
 - Nothing compiles to `[[inputs.exec]]` today, because no PE lacks gNMI. To see
   the CLI-scrape arm, scope a signal at `ce_devices` (one field in
   `queries/telemetry_collector.gql`, one `|` in the transform): the Cisco CEs
@@ -237,12 +244,31 @@ purpose:
 - Control-plane fidelity is the goal; **dataplane MPLS forwarding on cEOS
   containers is limited** — expectations validate BGP/policy facts, which is
   where the intent story lives anyway.
-- **`core-rr-01` is the expensive node.** vJunos-router wants ~4 GB RAM and
-  takes several minutes to boot. If it will not start, or its `inet-vpn`
-  family misbehaves, re-platform it: `render_nokia_srlinux` is still
-  registered, so switching `core-rr-01` to the `nokia_srlinux` platform is one
-  field in the SoT and one `kind:` in the topology, with zero intent changes.
-  That *is* the lesson.
+- **`core-rr-01` was re-platformed, and that is the lesson.** It used to be a
+  vJunos router. vJunos runs under vrnetlab, which needs host CPU
+  virtualization (`/dev/kvm`) — so the lab would not come up on hosts without
+  it. SR Linux is a native container and needs none.
+
+  The migration was: one `DcimPlatform` field in `scripts/bootstrap.py`, the
+  four interface names that go with it (`lo0` → `system0`, `ge-0/0/N` →
+  `ethernet-1/N`), one `kind:`/`type:` in the topology, and one entry in
+  `deploy_configs.py` for the transport. **Zero intent changes.** No contract,
+  invariant, signal, check or expectation moved. `render_juniper_junos` is
+  still registered and untouched, so moving back is the same small edit in
+  reverse.
+
+- **`type: ixr6` on the SR Linux node is load-bearing.** SR Linux gates LDP
+  and the `l3vpn-ipv4-unicast` address family on the chassis. Every 7220 IXR
+  fixed-form type — including clab's `ixrd2l` default — offers only
+  `ipv4-unicast|ipv6-unicast|evpn|route-target` and has no `ldp` under
+  `protocols` at all. A vpn-ipv4 route reflector needs the 7250 IXR-6. If you
+  point it at a 7220, the commit fails loudly rather than silently dropping
+  the address family the contract asked for — which is the behavior you want.
+
+- **The `mpls` capability is what gates LDP**, not a chassis check in the
+  renderer. Drop `mpls` from the `nokia_srlinux` platform record and the
+  compiled config loses its LDP block and nothing else. Same switchboard as
+  `gnmi` → collector selection.
 - Both PEs are cEOS, so the CLI-scrape collector is currently unexercised.
   It is kept because it is the correct fallback for the gNMI-less Cisco CEs —
   see Phase 6.

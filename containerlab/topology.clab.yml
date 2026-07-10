@@ -5,7 +5,7 @@
 # Vendor mix is deliberate:
 #   pe-emea-01   Arista cEOS        - gNMI-native provider edge
 #   pe-emea-02   Arista cEOS        - gNMI-native PE + internet peering
-#   core-rr-01   Juniper vJunos     - NETCONF/gNMI, vpn-ipv4 route reflector
+#   core-rr-01   Nokia SR Linux     - gNMI/NETCONF, vpn-ipv4 route reflector
 #   ce-custc-0x  Cisco IOS-XE (IOL) - customer edge, NO gNMI: SSH/NETCONF only
 #   peer-inet-01 FRR                - internet-peer endpoint
 #   oob-sw-01    Linux bridge       - the modeled OOB management plane
@@ -17,16 +17,25 @@
 # compile a ping-only collector; point a signal at ce_devices and they fall
 # back to the CLI-scrape collector with no intent change.
 #
+# core-rr-01 was a vJunos router. vJunos runs under vrnetlab, which needs
+# host CPU virtualization (/dev/kvm) - so the lab could not run on hosts
+# without it. SR Linux is a native container and needs none. The intent did
+# not change: one DcimPlatform field in the SoT moved, and the already
+# registered render_nokia_srlinux took over. That is the whole lesson of
+# this repo, executed on itself.
+#
 # Image notes:
 #   - ceos requires the image downloaded from arista.com
 #   - cisco_iol requires the IOL image imported via vrnetlab
 #     (https://containerlab.dev/manual/kinds/cisco_iol/)
-#   - juniper_vjunos-router requires the vJunos image packaged with vrnetlab
-#     (https://containerlab.dev/manual/kinds/vr-vjunosrouter/). It wants
-#     ~4 GB RAM per node and takes several minutes to boot.
-#   - if a node's control plane rejects the vpn-ipv4 AF, re-point that
-#     platform's renderer at another vendor: the intent does not change,
-#     only the renderer target.
+#   - nokia_srlinux pulls freely from ghcr.io. `type: ixr-6` is NOT
+#     cosmetic: SR Linux gates LDP and the l3vpn-ipv4-unicast address
+#     family on the chassis, and the 7220 IXR fixed-form types (including
+#     clab's `ixr-d2l` default) expose neither. A vpn-ipv4 route reflector
+#     needs the 7250 IXR-6.
+#   - the juniper_vjunosrouter kind below is kept, unused, so that moving
+#     core-rr-01 back is one `kind:`/`type:` here plus one platform field
+#     in scripts/bootstrap.py. render_juniper_junos never left the tree.
 
 name: intent-lab
 
@@ -36,7 +45,7 @@ mgmt:
 
 topology:
   kinds:
-    ceos:
+    arista_ceos:
       image: ghcr.io/autonetops/ceos:latest
     cisco_iol:
       image: ghcr.io/autonetops/autonetops_labs/cisco_iol:latest
@@ -44,17 +53,23 @@ topology:
       image: vrnetlab/juniper_vjunos-router:24.2R
     linux:
       image: quay.io/frrouting/frr:10.1.0
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:24.10.1
 
   nodes:
     pe-emea-01:
-      kind: ceos
+      kind: arista_ceos
       mgmt-ipv4: 172.20.20.11
     pe-emea-02:
-      kind: ceos
+      kind: arista_ceos
       mgmt-ipv4: 172.20.20.12
     core-rr-01:
-      kind: juniper_vjunosrouter
+      kind: nokia_srlinux
+      type: ixr-6         # 7250 IXR-6: the chassis that has ldp + l3vpn-ipv4-unicast
       mgmt-ipv4: 172.20.20.13
+    # to move back to vJunos (needs /dev/kvm), swap the two lines above for:
+    #   kind: juniper_vjunosrouter
+    # and restore the ge-0/0/N interface names in scripts/bootstrap.py
     ce-custc-01:
       kind: cisco_iol
       mgmt-ipv4: 172.20.20.21
@@ -66,23 +81,23 @@ topology:
       mgmt-ipv4: 172.20.20.31
       binds:
         - ./frr/daemons:/etc/frr/daemons:ro
-    oob-sw-01:
-      kind: linux
-      image: alpine:3.20
-      mgmt-ipv4: 172.20.20.41
-      exec:
-        # plain L2 bridge across all OOB ports
-        - ip link add br-oob type bridge
-        - ip link set br-oob up
-        - sh -c 'for i in 1 2 3 4 5 6; do ip link set eth$i master br-oob && ip link set eth$i up; done'
+    #oob-sw-01:
+    #  kind: linux
+    #  image: alpine:3.20
+    #  mgmt-ipv4: 172.20.20.41
+    #  exec:
+    #    # plain L2 bridge across all OOB ports
+    #    - ip link add br-oob type bridge
+    #    - ip link set br-oob up
+    #    - sh -c 'for i in 1 2 3 4 5 6; do ip link set eth$i master br-oob && ip link set eth$i up; done'
 
-  # core-rr-01 endpoints are given as clab ethN; vrnetlab maps them onto the
-  # Junos names the SoT models: eth1 -> ge-0/0/0, eth2 -> ge-0/0/1,
-  # eth3 -> ge-0/0/2. Likewise ceos ethN -> EthernetN.
+  # core-rr-01 endpoints carry the SR Linux port names the SoT models
+  # directly - no vrnetlab ethN -> ge-0/0/N remapping any more. ceos still
+  # maps ethN -> EthernetN.
   links:
     # core plane
-    - endpoints: ["pe-emea-01:eth1", "core-rr-01:eth1"]
-    - endpoints: ["pe-emea-02:eth1", "core-rr-01:eth2"]
+    - endpoints: ["pe-emea-01:eth1", "core-rr-01:ethernet-1/1"]
+    - endpoints: ["pe-emea-02:eth1", "core-rr-01:ethernet-1/2"]
     # customer plane (dual-homed tenant: one CE per POP/PE)
     - endpoints: ["ce-custc-01:Ethernet0/1", "pe-emea-01:eth2"]
     - endpoints: ["ce-custc-02:Ethernet0/1", "pe-emea-02:eth2"]
@@ -90,9 +105,9 @@ topology:
     - endpoints: ["peer-inet-01:eth1", "pe-emea-02:eth3"]
     # OOB management plane - modeled in the SoT, verified by the
     # oob_reachability check, exercised by the device_reachability signal
-    - endpoints: ["pe-emea-01:eth3", "oob-sw-01:eth1"]
-    - endpoints: ["pe-emea-02:eth4", "oob-sw-01:eth2"]
-    - endpoints: ["core-rr-01:eth3", "oob-sw-01:eth3"]
-    - endpoints: ["ce-custc-01:Ethernet0/2", "oob-sw-01:eth4"]
-    - endpoints: ["ce-custc-02:Ethernet0/2", "oob-sw-01:eth5"]
-    - endpoints: ["peer-inet-01:eth2", "oob-sw-01:eth6"]
+    #- endpoints: ["pe-emea-01:eth3", "oob-sw-01:eth1"]
+    #- endpoints: ["pe-emea-02:eth4", "oob-sw-01:eth2"]
+    #- endpoints: ["core-rr-01:ethernet-1/3", "oob-sw-01:eth3"]
+    #- endpoints: ["ce-custc-01:Ethernet0/2", "oob-sw-01:eth4"]
+    #- endpoints: ["ce-custc-02:Ethernet0/2", "oob-sw-01:eth5"]
+    #- endpoints: ["peer-inet-01:eth2", "oob-sw-01:eth6"]
