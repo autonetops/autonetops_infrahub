@@ -1,6 +1,0 @@
-# SR Linux partial startup-config, applied by containerlab after the node
-# boots with its factory defaults. It sets the built-in admin user's
-# password to `admin` so scripts/deploy_configs.py (SRL_PASSWORD=admin)
-# can log in and push the compiled config. `admin` is a reserved username,
-# so the password lives under `admin-user`, not `user admin`.
-set / system aaa authentication admin-user password admin

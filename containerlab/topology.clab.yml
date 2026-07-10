@@ -66,16 +66,18 @@ topology:
     # to move the reflector back to vJunos (needs /dev/kvm), swap the kind
     # above for juniper_vjunosrouter and restore the ge-0/0/N interface
     # names in scripts/bootstrap.py.
+    # The SR Linux admin password is set to admin/admin by
+    # scripts/deploy_configs.py on push - containerlab 0.77 does not
+    # reliably apply a CLI startup-config for the srl kind, and the config
+    # is delivered over `docker exec sr_cli` (not SSH) anyway.
     ce-custc-01:
       kind: nokia_srlinux
       type: ixr-d3l         # free 7220 IXR tier - eBGP-only customer edge
       mgmt-ipv4: 172.20.20.21
-      startup-config: srl-startup.cli   # sets the admin password to admin
     ce-custc-02:
       kind: nokia_srlinux
       type: ixr-d3l
       mgmt-ipv4: 172.20.20.22
-      startup-config: srl-startup.cli
     peer-inet-01:
       kind: linux
       mgmt-ipv4: 172.20.20.31
