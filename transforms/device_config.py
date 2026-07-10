@@ -241,6 +241,21 @@ def is_customer_side(device, contracts):
     return on_ce and not on_pe
 
 
+def is_route_reflector(device, contracts):
+    """True when the device is a ``pe_device`` of a ``core`` contract.
+
+    The reflector reflects a contract but terminates no tenant VRF, so it
+    is neither a provider edge nor a customer edge - it needs its own
+    shape. In this lab only ``core-rr-01`` matches; the PEs sit on the
+    ``ce_devices`` side of the core contract (they are RR *clients*).
+    """
+    return any(
+        c["role"] == "core"
+        and device["name"] in {d["name"] for d in c["pe_devices"]}
+        for c in contracts
+    )
+
+
 def edge_sessions(device, contract, local_side):
     """Derive BGP sessions from modeled cabling.
 
@@ -298,16 +313,97 @@ def _wildcard(prefix):
 # --------------------------------------------------------------------------
 
 def render_cisco_iosxe(device, contracts, policies):
-    """IOS-XE has two shapes in this lab.
+    """IOS-XE has three shapes in this lab.
 
-    Provider edge: VRFs, vpnv4 to the route reflector, per-tenant address
-    families. Customer edge: advertise exactly the prefixes the contract
-    authorizes and nothing else. Which one is rendered follows from the
-    contract graph, not from a flag on the device.
+    Route reflector: an IGP/LDP core underlay plus a vpnv4 reflector
+    session per client. Provider edge: VRFs, vpnv4 to the route reflector,
+    per-tenant address families. Customer edge: advertise exactly the
+    prefixes the contract authorizes and nothing else. Which one is
+    rendered follows from the contract graph, not from a flag on the
+    device - ``core-rr-01`` moved here from SR Linux because the free
+    7220 IXR chassis has no MPLS, and nothing in the intent model changed.
     """
+    if is_route_reflector(device, contracts):
+        return _iosxe_route_reflector(device, contracts)
     if is_customer_side(device, contracts):
         return _iosxe_customer_edge(device, contracts)
     return _iosxe_provider_edge(device, contracts, policies)
+
+
+def _iosxe_route_reflector(device, contracts):
+    """iBGP vpnv4 route reflector.
+
+    The reflector is the OSPF transit between the two PEs (they meet only
+    through it), so it runs area 0 on both core links and advertises its
+    own loopback; LDP labels the client loopbacks so the reflected vpnv4
+    next-hops resolve. Clients are the core contract's ``ce_devices`` -
+    the PEs - exactly the inverse of the RR-client block the PE renderers
+    emit toward this device's loopback.
+    """
+    lo = loopback_ip(device["interfaces"])
+    lines = [
+        "! Compiled by InfraHub - intent artifact, do not hand-edit",
+        f"hostname {device['name']}",
+        "ip cef",
+        "mpls label protocol ldp",
+        "!",
+    ]
+
+    for iface in device["interfaces"]:
+        if not iface["ips"]:
+            continue
+        addr = ipaddress.ip_interface(iface["ips"][0])
+        lines.append(f"interface {iface['name']}")
+        if iface["description"]:
+            lines.append(f" description {iface['description']}")
+        lines.append(f" ip address {addr.ip} {addr.netmask}")
+        if iface["role"] == "core":
+            lines += [" ip ospf 1 area 0", " mpls ip"]
+        elif iface["name"].lower().startswith(LOOPBACK_PREFIXES):
+            lines.append(" ip ospf 1 area 0")
+        lines += [" no shutdown", "!"]
+
+    lines += [
+        "router ospf 1",
+        f" router-id {lo}",
+        " passive-interface Loopback0",
+        "!",
+        "mpls ldp router-id Loopback0 force",
+        "!",
+    ]
+
+    lines.append(f"router bgp {device['asn']}")
+    lines += [f" bgp router-id {lo}", " bgp log-neighbor-changes"]
+
+    for c in contracts:
+        if c["role"] != "core":
+            continue
+        if device["name"] not in {d["name"] for d in c["pe_devices"]}:
+            continue
+        clients = []
+        for client in c["ce_devices"]:
+            client_lo = loopback_ip(
+                [{"name": i["name"], "ips": i["ips"]} for i in client["interfaces"]]
+            )
+            if not client_lo:
+                continue
+            clients.append(client_lo)
+            lines += [
+                f" neighbor {client_lo} remote-as {c['peer_asn']}",
+                f" neighbor {client_lo} update-source Loopback0",
+            ]
+        lines.append(" !")
+        lines.append(" address-family vpnv4")
+        for client_lo in clients:
+            lines += [
+                f"  neighbor {client_lo} activate",
+                f"  neighbor {client_lo} send-community extended",
+                f"  neighbor {client_lo} route-reflector-client",
+            ]
+        lines.append(" exit-address-family")
+    lines.append("!")
+
+    return "\n".join(lines) + "\n"
 
 
 def _iosxe_customer_edge(device, contracts):
@@ -811,30 +907,31 @@ def render_juniper_junos(device, contracts, policies):
 
 
 def render_nokia_srlinux(device, contracts, policies):
-    """SR Linux, the vpn-ipv4 route reflector in this lab.
+    """SR Linux has two shapes in this lab.
 
-    LDP is emitted only where the platform claims the ``mpls`` capability.
-    No contract asks for LDP - it is a mechanism this renderer picks to
-    satisfy an MPLS forwarding plane, so a platform that cannot run it
-    simply gets a config without it.
+    Customer edge: eBGP to the PE, advertising exactly the prefixes the
+    contract authorizes. Route reflector: an OSPF/LDP core underlay plus a
+    vpn-ipv4 reflector session per client. Which one is rendered follows
+    from the contract graph, not from a flag on the device.
 
-    The l3vpn address family is the opposite case: ``afi_safis`` names it
-    in the contract, so it is always emitted. Point this renderer at a
-    chassis that has no l3vpn support (any 7220 IXR fixed-form box) and
-    the commit fails - loudly, which is correct. Intent that the hardware
-    cannot honor is a violation to surface, not a line to drop.
+    ``core-rr-01`` used to be the reflector here, until the lab had to run
+    on a host without a Nokia chassis license: the free 7220 IXR image has
+    no MPLS at all, so the reflector moved to Cisco IOL and SR Linux took
+    over the customer edges (which need only plain eBGP). The reflector
+    body below stays registered and unchanged - dormant, like the Junos
+    renderer - so moving a reflector back onto a licensed 7250 chassis is
+    one field in the SoT and nothing here.
     """
-    lo = loopback_ip(device["interfaces"])
-    lo_iface = loopback_iface(device["interfaces"])
-    core_ifaces = [
-        i for i in device["interfaces"] if i["role"] == "core" and i["ips"]
-    ]
+    if is_customer_side(device, contracts):
+        return _srl_customer_edge(device, contracts)
+    return _srl_route_reflector(device, contracts, policies)
 
-    lines = [
-        "# Compiled by InfraHub - intent artifact, do not hand-edit",
-        "# Apply with: sr_cli --candidate-mode < this file, then `commit stay`",
-    ]
 
+def _srl_interfaces_and_netinst(device):
+    """The interface + default network-instance scaffolding both SR Linux
+    shapes share: every addressed port up with an ipv4 subinterface, then
+    bound into the default network-instance."""
+    lines = []
     for iface in device["interfaces"]:
         if not iface["ips"]:
             continue
@@ -859,6 +956,150 @@ def render_nokia_srlinux(device, contracts, policies):
             lines.append(
                 f"set / network-instance default interface {iface['name']}.0"
             )
+    return lines
+
+
+def _srl_router_id(device):
+    """A CE carries no loopback, so its BGP router-id is the first
+    non-management interface address; a reflector uses its loopback."""
+    lo = loopback_ip(device["interfaces"])
+    if lo:
+        return lo
+    for iface in device["interfaces"]:
+        if iface["role"] != "management" and iface["ips"]:
+            return iface["ips"][0].split("/")[0]
+    return None
+
+
+def _srl_customer_edge(device, contracts):
+    """SR Linux customer edge.
+
+    The customer prefixes are not on any interface, so they are anchored
+    as blackhole statics and released by an export policy that also tags
+    the contract communities - the same shape ``render_frr`` uses, in SR
+    Linux's routing-policy grammar. IPv4 only, matching the other CE
+    renderers. Validated against SR Linux 24.10.1 on a 7220 IXR-D3L.
+    """
+    my_contracts = [
+        c for c in contracts
+        if device["name"] in {d["name"] for d in c["ce_devices"]}
+        and c["role"] in ("customer_edge", "internet_peering", "transit")
+    ]
+
+    lines = [
+        "# Compiled by InfraHub - intent artifact, do not hand-edit",
+        "# Apply with: sr_cli --candidate-mode < this file, then `commit stay`",
+    ]
+    lines += _srl_interfaces_and_netinst(device)
+
+    if not device["asn"]:
+        return "\n".join(lines) + "\n"
+
+    v4_prefixes = []
+    for c in my_contracts:
+        for prefix in c["allowed_prefixes"]:
+            if ipaddress.ip_network(prefix).version == 4 and prefix not in v4_prefixes:
+                v4_prefixes.append(prefix)
+
+    communities = []
+    for c in my_contracts:
+        for comm in c["require_communities"] + c["attach_communities"]:
+            if comm not in communities:
+                communities.append(comm)
+
+    prefix_set, comm_set, policy = "customer-prefixes", "customer-comms", "export-customer"
+
+    if v4_prefixes:
+        lines.append(
+            "set / network-instance default next-hop-groups group blackhole blackhole"
+        )
+        for prefix in v4_prefixes:
+            lines += [
+                f"set / network-instance default static-routes route {prefix} "
+                f"admin-state enable",
+                f"set / network-instance default static-routes route {prefix} "
+                f"next-hop-group blackhole",
+                f"set / routing-policy prefix-set {prefix_set} prefix {prefix} "
+                f"mask-length-range exact",
+            ]
+    if communities:
+        lines.append(
+            f"set / routing-policy community-set {comm_set} member "
+            f"[ {' '.join(communities)} ]"
+        )
+    lines.append(
+        f"set / routing-policy policy {policy} default-action policy-result reject"
+    )
+    if v4_prefixes:
+        lines += [
+            f"set / routing-policy policy {policy} statement 10 match "
+            f"prefix-set {prefix_set}",
+            f"set / routing-policy policy {policy} statement 10 action "
+            f"policy-result accept",
+        ]
+        if communities:
+            lines.append(
+                f"set / routing-policy policy {policy} statement 10 action "
+                f"bgp communities add {comm_set}"
+            )
+
+    bgp = "set / network-instance default protocols bgp"
+    lines += [
+        f"{bgp} admin-state enable",
+        f"{bgp} autonomous-system {device['asn']}",
+        f"{bgp} router-id {_srl_router_id(device)}",
+        f"{bgp} afi-safi ipv4-unicast admin-state enable",
+    ]
+
+    # one eBGP group toward the provider; neighbors follow modeled cabling
+    sessions = []
+    for c in my_contracts:
+        for session in edge_sessions(device, c, "ce_devices"):
+            asn = remote_asn(c, "pe_devices", session["neighbor_device"])
+            sessions.append((session["neighbor_ip"], asn))
+    if sessions:
+        lines += [
+            f"{bgp} group to-pe admin-state enable",
+            f"{bgp} group to-pe peer-as {sessions[0][1]}",
+            f"{bgp} group to-pe export-policy [ {policy} ]",
+            f"{bgp} group to-pe afi-safi ipv4-unicast admin-state enable",
+        ]
+        for neighbor_ip, _ in sessions:
+            lines += [
+                f"{bgp} neighbor {neighbor_ip} admin-state enable",
+                f"{bgp} neighbor {neighbor_ip} peer-group to-pe",
+            ]
+
+    return "\n".join(lines) + "\n"
+
+
+def _srl_route_reflector(device, contracts, policies):
+    """SR Linux vpn-ipv4 route reflector - dormant since core-rr-01 moved
+    to Cisco IOL, kept so a reflector can return to a licensed 7250 chassis
+    as a one-field SoT change.
+
+    LDP is emitted only where the platform claims the ``mpls`` capability.
+    No contract asks for LDP - it is a mechanism this renderer picks to
+    satisfy an MPLS forwarding plane, so a platform that cannot run it
+    simply gets a config without it.
+
+    The l3vpn address family is the opposite case: ``afi_safis`` names it
+    in the contract, so it is always emitted. Point this renderer at a
+    chassis that has no l3vpn support (any 7220 IXR fixed-form box) and
+    the commit fails - loudly, which is correct. Intent that the hardware
+    cannot honor is a violation to surface, not a line to drop.
+    """
+    lo = loopback_ip(device["interfaces"])
+    lo_iface = loopback_iface(device["interfaces"])
+    core_ifaces = [
+        i for i in device["interfaces"] if i["role"] == "core" and i["ips"]
+    ]
+
+    lines = [
+        "# Compiled by InfraHub - intent artifact, do not hand-edit",
+        "# Apply with: sr_cli --candidate-mode < this file, then `commit stay`",
+    ]
+    lines += _srl_interfaces_and_netinst(device)
 
     ospf = "set / network-instance default protocols ospf instance main"
     lines += [

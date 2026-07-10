@@ -110,15 +110,15 @@ def main():
     # collector for it rather than a gNMI subscription.
     #
     # juniper_junos keeps a platform record even though no device runs it
-    # today: core-rr-01 moved to SR Linux when the lab had to run on hosts
-    # without CPU virtualization. The Junos renderer is still registered,
-    # so moving back is a one-field change here and nothing else.
+    # today - the Junos renderer stays registered so a node can move back
+    # onto vJunos as a one-field change here and nothing else.
     #
-    # nokia_srlinux claims `mpls`: true for the 7250 IXR-6 the topology
-    # asks containerlab for, and false for the 7220 IXR fixed-form boxes,
-    # which expose neither LDP nor the l3vpn address families. The
-    # renderer reads this field rather than assuming a chassis - drop
-    # `mpls` here and the compiled config loses its LDP block.
+    # nokia_srlinux no longer claims `mpls`/`vpn_ipv4`: the free 7220 IXR
+    # image the lab runs has no MPLS subsystem at all (a Nokia chassis
+    # license unlocks the 7250 platforms that do). SR Linux is a customer
+    # edge here, which needs neither - it speaks plain eBGP ipv4-unicast.
+    # cisco_iosxe keeps both: core-rr-01 (Cisco IOL) is the vpn-ipv4 route
+    # reflector, and IOL's image is full MPLS L3VPN.
     # ------------------------------------------------------------------
     print("==> platforms")
     platforms = {}
@@ -129,8 +129,7 @@ def main():
          ["gnmi", "gnmi_set", "netconf", "ssh_cli", "snmp", "cli_config",
           "mpls", "vpn_ipv4"]),
         ("nokia_srlinux", "Nokia", "nokia_srl", "nokia_srlinux",
-         ["gnmi", "gnmi_set", "netconf", "ssh_cli", "snmp", "cli_config",
-          "mpls", "vpn_ipv4"]),
+         ["gnmi", "gnmi_set", "netconf", "ssh_cli", "snmp", "cli_config"]),
         ("juniper_junos", "Juniper Networks", "juniper_junos",
          "juniper_vjunosrouter",
          ["gnmi", "netconf", "ssh_cli", "snmp", "cli_config", "mpls",
@@ -191,29 +190,31 @@ def main():
             ("Ethernet3", "physical", "peering", "203.0.113.0/31", "to peer-inet-01"),
             ("Ethernet4", "physical", "management", f"{OOB_NET}.12/24", "OOB"),
         ]),
-        # SR Linux names its loopback `system0` and its ports `ethernet-1/N`.
-        # To move this node back to vJunos, swap the platform and the four
-        # interface names below (and the cables further down) for:
-        #     ("juniper_junos", "core", as65010, pop_a, f"{MGMT_NET}.13", [
-        #         ("lo0",      "virtual",  None,         "10.255.0.3/32", ...),
-        #         ("ge-0/0/0", "physical", "core",       "10.0.0.1/31",   ...),
-        #         ("ge-0/0/1", "physical", "core",       "10.0.0.3/31",   ...),
-        #         ("ge-0/0/2", "physical", "management", f"{OOB_NET}.13/24", ...),
-        #     ])
-        # Nothing else in this file, and nothing in the intent layer, moves.
-        "core-rr-01": ("nokia_srlinux", "core", as65010, pop_a, f"{MGMT_NET}.13", [
-            ("system0", "virtual", None, "10.255.0.3/32", "router-id"),
-            ("ethernet-1/1", "physical", "core", "10.0.0.1/31", "to pe-emea-01"),
-            ("ethernet-1/2", "physical", "core", "10.0.0.3/31", "to pe-emea-02"),
-            ("ethernet-1/3", "physical", "management", f"{OOB_NET}.13/24", "OOB"),
+        # core-rr-01 is the vpn-ipv4 route reflector. It ran on SR Linux
+        # until the lab had to run on a host with no Nokia chassis license:
+        # the free 7220 IXR image has no MPLS, so a vpn-ipv4 reflector is
+        # impossible there. It moved to Cisco IOL (full MPLS L3VPN, no
+        # license) using IOS `Loopback0`/`Ethernet0/N` names; the SR Linux
+        # free tier moved to the customer edges below. The intent did not
+        # move - the Junos renderer is also still registered, so a reflector
+        # can return to vJunos or a licensed 7250 as a one-field change.
+        "core-rr-01": ("cisco_iosxe", "core", as65010, pop_a, f"{MGMT_NET}.13", [
+            ("Loopback0", "virtual", None, "10.255.0.3/32", "router-id"),
+            ("Ethernet0/1", "physical", "core", "10.0.0.1/31", "to pe-emea-01"),
+            ("Ethernet0/2", "physical", "core", "10.0.0.3/31", "to pe-emea-02"),
+            ("Ethernet0/3", "physical", "management", f"{OOB_NET}.13/24", "OOB"),
         ]),
-        "ce-custc-01": ("cisco_iosxe", "cpe", as65123, pop_a, f"{MGMT_NET}.21", [
-            ("Ethernet0/1", "physical", "cust", "10.84.255.2/30", "to pe-emea-01"),
-            ("Ethernet0/2", "physical", "management", f"{OOB_NET}.21/24", "OOB"),
+        # The customer edges run SR Linux on the free 7220 IXR-D3L: a CE
+        # needs only eBGP ipv4-unicast, which the unlicensed chassis does.
+        # No loopback is modeled - the customer-facing address is the BGP
+        # router-id (see render_nokia_srlinux). Ports are `ethernet-1/N`.
+        "ce-custc-01": ("nokia_srlinux", "cpe", as65123, pop_a, f"{MGMT_NET}.21", [
+            ("ethernet-1/1", "physical", "cust", "10.84.255.2/30", "to pe-emea-01"),
+            ("ethernet-1/2", "physical", "management", f"{OOB_NET}.21/24", "OOB"),
         ]),
-        "ce-custc-02": ("cisco_iosxe", "cpe", as65123, pop_b, f"{MGMT_NET}.22", [
-            ("Ethernet0/1", "physical", "cust", "10.84.255.6/30", "to pe-emea-02"),
-            ("Ethernet0/2", "physical", "management", f"{OOB_NET}.22/24", "OOB"),
+        "ce-custc-02": ("nokia_srlinux", "cpe", as65123, pop_b, f"{MGMT_NET}.22", [
+            ("ethernet-1/1", "physical", "cust", "10.84.255.6/30", "to pe-emea-02"),
+            ("ethernet-1/2", "physical", "management", f"{OOB_NET}.22/24", "OOB"),
         ]),
         "peer-inet-01": ("frr", "edge", as64999, pop_b, f"{MGMT_NET}.31", [
             ("eth1", "physical", "peering", "203.0.113.1/31", "to pe-emea-02"),
@@ -253,17 +254,17 @@ def main():
 
     print("==> cabling (core, customer, peering and OOB planes)")
     cables = [
-        (("pe-emea-01", "Ethernet1"), ("core-rr-01", "ethernet-1/1")),
-        (("pe-emea-02", "Ethernet1"), ("core-rr-01", "ethernet-1/2")),
-        (("ce-custc-01", "Ethernet0/1"), ("pe-emea-01", "Ethernet2")),
-        (("ce-custc-02", "Ethernet0/1"), ("pe-emea-02", "Ethernet2")),
+        (("pe-emea-01", "Ethernet1"), ("core-rr-01", "Ethernet0/1")),
+        (("pe-emea-02", "Ethernet1"), ("core-rr-01", "Ethernet0/2")),
+        (("ce-custc-01", "ethernet-1/1"), ("pe-emea-01", "Ethernet2")),
+        (("ce-custc-02", "ethernet-1/1"), ("pe-emea-02", "Ethernet2")),
         (("peer-inet-01", "eth1"), ("pe-emea-02", "Ethernet3")),
         # the OOB plane - this is what makes the oob_reachability check pass
         (("pe-emea-01", "Ethernet3"), ("oob-sw-01", "eth1")),
         (("pe-emea-02", "Ethernet4"), ("oob-sw-01", "eth2")),
-        (("core-rr-01", "ethernet-1/3"), ("oob-sw-01", "eth3")),
-        (("ce-custc-01", "Ethernet0/2"), ("oob-sw-01", "eth4")),
-        (("ce-custc-02", "Ethernet0/2"), ("oob-sw-01", "eth5")),
+        (("core-rr-01", "Ethernet0/3"), ("oob-sw-01", "eth3")),
+        (("ce-custc-01", "ethernet-1/2"), ("oob-sw-01", "eth4")),
+        (("ce-custc-02", "ethernet-1/2"), ("oob-sw-01", "eth5")),
         (("peer-inet-01", "eth2"), ("oob-sw-01", "eth6")),
     ]
     for end_a, end_b in cables:

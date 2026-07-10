@@ -19,7 +19,7 @@ telegraf → Prometheus → Grafana prove it.
    artifacts: device configs | expectations | telegraf inputs
               prometheus rules | grafana dashboards
      v  fetch_artifacts.py + deploy_configs.py   (execution stand-in)
-   containerlab: 2x cEOS PE + SR Linux RR + cisco IOL CEs + FRR peer + OOB bridge
+   containerlab: 2x cEOS PE + cisco IOL RR + SR Linux CEs + FRR peer + OOB bridge
      v  evidence
    telegraf (gNMI or CLI-scrape, capability-driven) -> Prometheus -> Grafana
 ```
@@ -115,23 +115,27 @@ diff). For the *same* `custc-ce-to-pe` contract:
   peering contract, so it alone grows `route-map INET-PEERING-EMEA-OUT deny`
   matching customer-c's community. **That deny clause is the no-leak invariant
   materialized.** Same renderer, same vendor, different intent attached.
-- `core-rr-01` gets SR Linux set-commands: an `afi-safi l3vpn-ipv4-unicast` RR
-  with the PEs as `route-reflector client` peers, derived from the
-  `ibgp-core-rr` contract + modeled loopbacks. Note the contract says
-  `vpn-ipv4` and the box says `l3vpn-ipv4-unicast`: that translation lives in
-  the renderer's `SRL_AFI_SAFI` table, which is exactly where vendor spelling
-  belongs.
-- CEs get IOS-XE, the peer gets FRR: both advertise exactly
-  `allowed_prefixes`, nothing else. Note the CE's `neighbor … remote-as 65010`
-  — IOS-XE has no `remote-as external`, so the renderer reads the provider ASN
-  off the modeled PE on the far end of the cable. Still derived, still no new
-  intent field.
+- `core-rr-01` gets Cisco IOS (IOL): a vpnv4 route reflector with the PEs as
+  `route-reflector-client` peers, derived from the `ibgp-core-rr` contract +
+  modeled loopbacks, over an OSPF/LDP core underlay. The contract says
+  `vpn-ipv4`; IOS spells it `address-family vpnv4` — vendor spelling stays in
+  the renderer.
+- CEs get SR Linux, the peer gets FRR: both advertise exactly
+  `allowed_prefixes`, nothing else. On SR Linux that is a blackhole static per
+  prefix released by a `routing-policy` export policy that also tags the
+  contract communities; on FRR it is `network` + `ip route … blackhole`. Same
+  intent, two grammars. Neither box has FRR's `remote-as external`, so the CE
+  renderer reads the provider ASN off the modeled PE on the far end of the
+  cable (SR Linux `peer-as`). Still derived, still no new intent field.
 
-The IOS-XE renderer knows two shapes — provider edge (VRFs, vpnv4 to the RR)
-and customer edge (advertise the authorized prefixes, nothing else). Which one
-a device gets is read off the contract graph, not off a flag: a device that is
-never a `pe_device` is a customer endpoint. Re-platform a CE onto any vendor
-and the same rule picks the same shape.
+The IOS-XE renderer now knows three shapes — route reflector (vpnv4 + an
+OSPF/LDP core), provider edge (VRFs, vpnv4 to the RR) and customer edge; SR
+Linux knows two (customer edge, plus a dormant reflector body). Which shape a
+device gets is read off the contract graph, not off a flag: a `pe_device` of a
+`core` contract is the reflector, a device that is never a `pe_device` is a
+customer endpoint, everything else is a PE. Re-platform a node onto any vendor
+and the same rule picks the same shape — that is exactly the move that put the
+reflector on IOL and the CEs on SR Linux.
 
 Note what you did NOT write: sessions. They're derived from contract +
 cabling. Change a cable in the SoT and the sessions everywhere recompile.
@@ -164,16 +168,15 @@ Inspect the `telegraf-inputs` artifacts:
   subscriptions on `:6030`, one per signal, sample interval straight from
   `frequency_seconds`.
 - `core-rr-01` and the CEs: `[[inputs.ping]]` only. No contract-scoped signal
-  points at them — signals attach to a contract's `pe_devices`, and no signal
-  is scoped to `ibgp-core-rr`. Scope one there and the RR compiles a gNMI
-  subscription on `:57400` with `tls_enable = true` (SR Linux serves gNMI
-  behind a self-signed profile), against the `nokia_srlinux` native paths —
-  not the openconfig paths the cEOS PEs use. Same signal, different paths,
-  selected by platform.
+  points at them — signals attach to a contract's `pe_devices`, and none is
+  scoped to `ibgp-core-rr` or the customer contract. Scope one at the SR Linux
+  CEs and they compile a gNMI subscription on `:57400` with `tls_enable = true`
+  (SR Linux serves gNMI behind a self-signed profile), against the
+  `nokia_srlinux` native paths — not the openconfig paths the cEOS PEs use.
+  Same signal, different paths, selected by platform.
 - Nothing compiles to `[[inputs.exec]]` today, because no PE lacks gNMI. To see
-  the CLI-scrape arm, scope a signal at `ce_devices` (one field in
-  `queries/telemetry_collector.gql`, one `|` in the transform): the Cisco CEs
-  claim `ssh_cli` and no `gnmi`, so they compile `cli_bgp_telemetry.py` over
+  the CLI-scrape arm, scope a signal at `ibgp-core-rr`: the Cisco IOL reflector
+  claims `ssh_cli` and no `gnmi`, so it compiles `cli_bgp_telemetry.py` over
   SSH instead. **The intent would not change; the platform's capabilities
   select the collector.**
 
@@ -208,11 +211,11 @@ peering contract jumps past the authorized bound; the compiled
 `inet-peering-emea-export-violation` alert fires. Intent declared it,
 expectations encoded it, Prometheus proved it.
 
-**Drift 2 — max-prefix (sev2).** On `ce-custc-01` (IOS-XE), advertise 250
+**Drift 2 — max-prefix (sev2).** On `ce-custc-01` (SR Linux), advertise 250
 extra prefixes inside 10.84.0.0/16. Watch `custc-ce-to-pe-route-count-exceeded`
 fire, and the PE's `maximum-routes` warning kick in.
 
-**Drift 3 — redundancy holds.** Shut `ce-custc-01:Ethernet0/1`. Reachability intent
+**Drift 3 — redundancy holds.** Shut `ce-custc-01:ethernet-1/1`. Reachability intent
 survives (the tenant is dual-homed by *checked* invariant), session-down fires
 sev2 for the failed attachment, and Grafana shows convergence within the
 declared 30s budget.
@@ -244,34 +247,38 @@ purpose:
 - Control-plane fidelity is the goal; **dataplane MPLS forwarding on cEOS
   containers is limited** — expectations validate BGP/policy facts, which is
   where the intent story lives anyway.
-- **`core-rr-01` was re-platformed, and that is the lesson.** It used to be a
-  vJunos router. vJunos runs under vrnetlab, which needs host CPU
-  virtualization (`/dev/kvm`) — so the lab would not come up on hosts without
-  it. SR Linux is a native container and needs none.
+- **`core-rr-01` was re-platformed twice, and that is the lesson.** It began
+  as a vJunos router (which needs host CPU virtualization, `/dev/kvm`), moved
+  to Nokia SR Linux to escape that, and is Cisco IOL now. SR Linux as a
+  *vpn-ipv4 reflector* needs a 7250 IXR chassis, which containerlab only
+  unlocks with a paid Nokia license — the free image emulates the 7220 IXR,
+  which has no MPLS subsystem at all. Cisco IOL (ADVENTERPRISEK9) has full MPLS
+  L3VPN, no license and no KVM, so the reflector lives there; the free SR Linux
+  tier took over the customer edges, which need only plain eBGP.
 
-  The migration was: one `DcimPlatform` field in `scripts/bootstrap.py`, the
-  four interface names that go with it (`lo0` → `system0`, `ge-0/0/N` →
-  `ethernet-1/N`), one `kind:`/`type:` in the topology, and one entry in
+  Each move was: one `DcimPlatform` field in `scripts/bootstrap.py`, the
+  interface names that go with it, one `kind:` in the topology, one entry in
   `deploy_configs.py` for the transport. **Zero intent changes.** No contract,
-  invariant, signal, check or expectation moved. `render_juniper_junos` is
-  still registered and untouched, so moving back is the same small edit in
-  reverse.
+  invariant, signal, check or expectation moved. `render_juniper_junos` and SR
+  Linux's dormant reflector body stay registered and untouched, so moving the
+  reflector back onto vJunos or a licensed 7250 is the same small edit.
 
-- **`type: ixr6` on the SR Linux node is load-bearing.** SR Linux gates LDP
-  and the `l3vpn-ipv4-unicast` address family on the chassis. Every 7220 IXR
-  fixed-form type — including clab's `ixrd2l` default — offers only
-  `ipv4-unicast|ipv6-unicast|evpn|route-target` and has no `ldp` under
-  `protocols` at all. A vpn-ipv4 route reflector needs the 7250 IXR-6. If you
-  point it at a 7220, the commit fails loudly rather than silently dropping
-  the address family the contract asked for — which is the behavior you want.
+- **The free SR Linux tier is a 7220 IXR, which is why it is a CE here.** MPLS
+  and the `l3vpn-ipv4-unicast` address family exist only on the licensed 7250
+  chassis (`ixr-6e`/`x1b`/…); on any 7220 fixed-form type — including clab's
+  `ixr-d2l` default and the `ixr-d3l` this lab uses — `system mpls` is not even
+  a config node and `protocols ldp` is not a valid token. A vpn-ipv4 reflector
+  cannot be built there; a customer edge, which speaks only eBGP
+  `ipv4-unicast`, can — so that is the role SR Linux plays.
 
-- **The `mpls` capability is what gates LDP**, not a chassis check in the
-  renderer. Drop `mpls` from the `nokia_srlinux` platform record and the
-  compiled config loses its LDP block and nothing else. Same switchboard as
-  `gnmi` → collector selection.
-- Both PEs are cEOS, so the CLI-scrape collector is currently unexercised.
-  It is kept because it is the correct fallback for the gNMI-less Cisco CEs —
-  see Phase 6.
+- **The `mpls` capability still gates LDP in the renderer**, not a chassis
+  check. `nokia_srlinux` no longer claims `mpls`, so SR Linux's dormant
+  reflector body would emit no LDP block; add `mpls` back (on a licensed 7250)
+  and it returns. Same switchboard as `gnmi` → collector selection.
+- The CLI-scrape collector now has a natural target: **`core-rr-01` (Cisco IOL)
+  claims `ssh_cli` and no `gnmi`**, so a signal scoped at `ibgp-core-rr`
+  compiles `cli_bgp_telemetry.py` over SSH. The SR Linux CEs are gNMI-native on
+  `:57400`, as are both cEOS PEs — see Phase 6.
 - gNMI field naming varies by OS version; the starlark normalizer in
   `monitoring/telegraf/telegraf.conf` covers the common cases and is the one
   place to extend.
