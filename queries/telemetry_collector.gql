@@ -58,23 +58,40 @@ query telemetry_collector($device: String!) {
         condition {
           value
         }
-        tenant {
-          node {
-            name {
-              value
-            }
-          }
-        }
         contract {
           node {
             name {
               value
             }
-            pe_devices {
-              edges {
-                node {
-                  name {
-                    value
+            policy {
+              node {
+                intent {
+                  node {
+                    tenant {
+                      node {
+                        name {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        watches {
+          node {
+            name {
+              value
+            }
+            ... on IntentRoutingContract {
+              pe_devices {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
                   }
                 }
               }

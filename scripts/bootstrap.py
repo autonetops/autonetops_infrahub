@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Seed the intent lab into InfraHub.
 
-Loads the full customer-c scenario from the article "Modeling Intent for
-Real Networks": taxonomy (zones, capabilities), inventory (devices,
-interfaces, cabling - including the OOB management plane), IPAM, and the
-intent layer (tenant, contracts, invariants, reachability, security,
-reliability, observability signals) plus the groups that drive targeted
-checks and artifact definitions.
+Loads the full customer-c scenario: taxonomy (zones, capabilities),
+inventory (devices, interfaces, cabling - including the OOB management
+plane), IPAM, and the intent hierarchy
+
+    realm -> intent -> policy -> contracts + invariants
+
+across the routing, reachability, security, observability and reliability
+realms (compliance and performance are seeded as empty realms), plus the
+groups that drive targeted checks and artifact definitions.
 
 Prerequisites (run in this order):
     infrahubctl schema load schema-library/base
@@ -14,7 +17,7 @@ Prerequisites (run in this order):
         schema-library/extensions/cable \
         schema-library/extensions/location_minimal \
         schema-library/extensions/routing_bgp
-    infrahubctl schema load schema-library/experimental/intent
+    infrahubctl schema load schemas/intent.yml
     python scripts/bootstrap.py
 
 Environment: INFRAHUB_ADDRESS (default http://localhost:8000) and
@@ -179,13 +182,13 @@ def main():
     device_defs = {
         "pe-emea-01": ("arista_eos", "edge", as65010, pop_a, f"{MGMT_NET}.11", [
             ("Loopback0", "virtual", None, "10.255.0.1/32", "router-id"),
-            ("Ethernet1", "physical", "core", "10.0.0.0/31", "to core-rr-01"),
+            ("Ethernet1", "physical", "core", "10.100.0.0/31", "to core-rr-01"),
             ("Ethernet2", "physical", "cust", "10.84.255.1/30", "to ce-custc-01 [customer-c]"),
             ("Ethernet3", "physical", "management", f"{OOB_NET}.11/24", "OOB"),
         ]),
         "pe-emea-02": ("arista_eos", "edge", as65010, pop_b, f"{MGMT_NET}.12", [
             ("Loopback0", "virtual", None, "10.255.0.2/32", "router-id"),
-            ("Ethernet1", "physical", "core", "10.0.0.2/31", "to core-rr-01"),
+            ("Ethernet1", "physical", "core", "10.100.0.2/31", "to core-rr-01"),
             ("Ethernet2", "physical", "cust", "10.84.255.5/30", "to ce-custc-02 [customer-c]"),
             ("Ethernet3", "physical", "peering", "203.0.113.0/31", "to peer-inet-01"),
             ("Ethernet4", "physical", "management", f"{OOB_NET}.12/24", "OOB"),
@@ -200,8 +203,8 @@ def main():
         # can return to vJunos or a licensed 7250 as a one-field change.
         "core-rr-01": ("cisco_iosxe", "core", as65010, pop_a, f"{MGMT_NET}.13", [
             ("Loopback0", "virtual", None, "10.255.0.3/32", "router-id"),
-            ("Ethernet0/1", "physical", "core", "10.0.0.1/31", "to pe-emea-01"),
-            ("Ethernet0/2", "physical", "core", "10.0.0.3/31", "to pe-emea-02"),
+            ("Ethernet0/1", "physical", "core", "10.100.0.1/31", "to pe-emea-01"),
+            ("Ethernet0/2", "physical", "core", "10.100.0.3/31", "to pe-emea-02"),
             ("Ethernet0/3", "physical", "management", f"{OOB_NET}.13/24", "OOB"),
         ]),
         # The customer edges run SR Linux on the free 7220 IXR-D3L: a CE
@@ -268,16 +271,38 @@ def main():
         (("peer-inet-01", "eth2"), ("oob-sw-01", "eth6")),
     ]
     for end_a, end_b in cables:
-        upsert(
-            client, "DcimCable",
-            status="connected",
-            connected_endpoints=[interfaces[end_a].id, interfaces[end_b].id],
-        )
+        try:
+            upsert(
+                client, "DcimCable",
+                status="connected",
+                connected_endpoints=[interfaces[end_a].id, interfaces[end_b].id],
+            )
+        except Exception as exc:
+            # cables have no unique key, so a re-run tries to re-cable ports
+            # that already have a peer - that is the only error we tolerate
+            if "maximum of 1 allowed" not in str(exc):
+                raise
+            print(f"    cable {end_a} <-> {end_b} already present, skipping")
 
     # ------------------------------------------------------------------
-    # Intent layer
+    # Intent layer: realm -> intent -> policy -> contracts + invariants
     # ------------------------------------------------------------------
-    print("==> tenant + contracts + invariants")
+    print("==> realms")
+    realm_defs = [
+        ("routing", "How reachability information is exchanged: BGP relationships, announcements, path preference."),
+        ("reachability", "Who must reach what, and how fast the network must converge back to it."),
+        ("security", "Segmentation, filtering and hardening posture."),
+        ("observability", "What must be measured, how fresh the evidence must be, what pages."),
+        ("reliability", "Redundancy and failure-domain requirements."),
+        ("compliance", "Golden-config, software lifecycle and audit conformance."),
+        ("performance", "QoS, latency budgets and capacity headroom."),
+    ]
+    realms = {
+        name: upsert(client, "IntentRealm", name=name, description=desc)
+        for name, desc in realm_defs
+    }
+
+    print("==> tenant")
     tenant = upsert(
         client, "IntentTenant",
         name="customer-c",
@@ -289,10 +314,36 @@ def main():
         vrfs=[vrf.id],
     )
 
+    def intent(name, realm, statement, **data):
+        return upsert(client, "IntentIntent", name=name,
+                      realm=realms[realm].id, statement=statement, **data)
+
+    def policy(name, parent, description, enforcement="full"):
+        return upsert(client, "IntentPolicy", name=name, intent=parent.id,
+                      description=description, enforcement=enforcement)
+
+    def invariant(name, parent, invariant_type, description, severity="blocking"):
+        return upsert(client, "IntentInvariant", name=name, policy=parent.id,
+                      invariant_type=invariant_type, severity=severity,
+                      description=description)
+
+    # ---------------------------------------------------- realm: routing
+    print("==> routing realm")
+    i_custc_vpn = intent(
+        "custc-l3vpn-connectivity", "routing",
+        "Customer C sites exchange routes privately over our L3VPN; only "
+        "authorized prefixes are announced and they never reach a public peer.",
+        tenant=tenant.id, priority="high", owner="customer-success-emea",
+        ticket="CHG-2025-1209",
+    )
+    p_custc_edge = policy(
+        "custc-edge-routing", i_custc_vpn,
+        "eBGP handoff from customer C CEs into CUSTC-PROD on redundant PEs.")
     contract_ce = upsert(
         client, "IntentRoutingContract",
         name="custc-ce-to-pe",
         description="Customer C CE handoff into CUSTC-PROD",
+        policy=p_custc_edge.id,
         role="customer_edge",
         peer_asn=65123,
         afi_safis=["ipv4-unicast", "ipv6-unicast"],
@@ -302,7 +353,6 @@ def main():
         require_communities=["65010:1203", "65010:30010"],
         attach_communities=["65010:55555"],
         zone=zones["corp-emea"].id,
-        tenant=tenant.id,
         pe_devices=[devices["pe-emea-01"].id, devices["pe-emea-02"].id],
         ce_devices=[devices["ce-custc-01"].id, devices["ce-custc-02"].id],
         allowed_prefixes=[
@@ -312,17 +362,49 @@ def main():
         ],
         export_deny_zones=[zones["internet-peers"].id, zones["transit"].id],
     )
-    upsert(client, "IntentInvariant", contract=contract_ce.id,
-           invariant_type="no_leak",
-           description="Customer C routes must not be exported to any public peer or transit")
-    upsert(client, "IntentInvariant", contract=contract_ce.id,
-           invariant_type="no_default_origination",
-           description="Do not originate default into the CE unless explicitly enabled")
+    invariant("custc-no-leak", p_custc_edge, "no_leak",
+              "Customer C routes must not be exported to any public peer or transit")
+    invariant("custc-no-default", p_custc_edge, "no_default_origination",
+              "Do not originate default into the CE unless explicitly enabled")
+    invariant("custc-prefix-authorization", p_custc_edge, "prefix_authorization",
+              "Only prefixes owned by customer C's VRFs may be allowed on the contract")
 
+    i_core = intent(
+        "provider-core-transport", "routing",
+        "Every PE learns every VPN route through reflected iBGP - no full mesh "
+        "to maintain, one reflector to reason about.",
+        priority="critical", owner="backbone-engineering",
+    )
+    p_core = policy(
+        "core-route-reflection", i_core,
+        "vpn-ipv4 route reflection: PEs are clients of core-rr-01.")
+    contract_core = upsert(
+        client, "IntentRoutingContract",
+        name="ibgp-core-rr",
+        description="vpn-ipv4 route reflection - PEs are clients of core-rr-01",
+        policy=p_core.id,
+        role="core",
+        peer_asn=65010,
+        afi_safis=["vpn-ipv4"],
+        zone=zones["core"].id,
+        pe_devices=[devices["core-rr-01"].id],
+        ce_devices=[devices["pe-emea-01"].id, devices["pe-emea-02"].id],
+    )
+
+    i_peering = intent(
+        "provider-internet-peering", "routing",
+        "AS65010 exchanges internet routes with InetPeerCo in EMEA; nothing "
+        "tenant-owned ever appears at the exchange.",
+        priority="high", owner="peering-team",
+    )
+    p_peering = policy(
+        "emea-peering", i_peering,
+        "Public eBGP session with InetPeerCo on pe-emea-02.")
     contract_inet = upsert(
         client, "IntentRoutingContract",
         name="inet-peering-emea",
         description="Public peering with InetPeerCo - customer-c must NEVER appear here",
+        policy=p_peering.id,
         role="internet_peering",
         peer_asn=64999,
         afi_safis=["ipv4-unicast"],
@@ -333,73 +415,139 @@ def main():
         allowed_prefixes=[prefixes["198.51.100.0/24"].id],
         export_tenants=[],  # empty on purpose: nothing tenant-owned goes out
     )
+    invariant("inet-no-reorigination", p_peering, "no_reorigination",
+              "Peer routes keep their original AS path - we never re-originate")
 
-    contract_core = upsert(
-        client, "IntentRoutingContract",
-        name="ibgp-core-rr",
-        description="vpn-ipv4 route reflection - PEs are clients of core-rr-01",
-        role="core",
-        peer_asn=65010,
-        afi_safis=["vpn-ipv4"],
-        zone=zones["core"].id,
-        pe_devices=[devices["core-rr-01"].id],
-        ce_devices=[devices["pe-emea-01"].id, devices["pe-emea-02"].id],
+    # ------------------------------------------------ realm: reachability
+    print("==> reachability realm")
+    i_reach = intent(
+        "custc-apps-reachable", "reachability",
+        "Customer C application prefixes stay reachable from EMEA corp and "
+        "recover within 30 seconds of any single failure.",
+        tenant=tenant.id, priority="high", owner="customer-success-emea",
     )
-
-    print("==> reachability / security / reliability")
+    p_reach = policy(
+        "custc-reachability", i_reach,
+        "Corp-EMEA reaches the customer C application ranges via the L3VPN.")
     upsert(
-        client, "IntentReachability",
+        client, "IntentReachabilityContract",
         name="custc-apps-reachable-from-emea-corp",
-        tenant=tenant.id,
+        policy=p_reach.id,
         from_zone=zones["corp-emea"].id,
         to_prefixes=[prefixes["10.84.0.0/16"].id, prefixes["2001:db8:84::/48"].id],
         require_redundancy=True,
         max_convergence_seconds=30,
     )
+    invariant("custc-reachability-preserved", p_reach, "reachability_preserved",
+              "A change may not remove the last redundant path to these prefixes",
+              severity="warning")
 
-    policy = upsert(
-        client, "IntentSecurityPolicy",
+    # ---------------------------------------------------- realm: security
+    print("==> security realm")
+    i_sec = intent(
+        "custc-perimeter-protection", "security",
+        "Only sanctioned traffic enters customer C's VPN at the provider edge.",
+        tenant=tenant.id, priority="high", owner="secops-emea",
+    )
+    p_sec = policy(
+        "custc-inbound-protect", i_sec,
+        "Inbound filtering and DDoS posture on every customer-facing PE port.")
+    contract_sec = upsert(
+        client, "IntentSecurityContract",
         name="custc-inbound-protect",
-        tenant=tenant.id,
+        policy=p_sec.id,
         ddos_profile="standard_l3vpn",
         attach_device_role="pe",
         attach_interface_role="cust",
     )
-    upsert(client, "IntentSecurityRule", policy=policy.id,
+    upsert(client, "IntentSecurityRule", contract=contract_sec.id,
            name="allow-corp-https", index=10, action="allow", protocol="tcp",
            dst_ports=[443, 8443], src_zone=zones["corp-emea"].id,
            dst_prefixes=[prefixes["10.84.20.0/24"].id])
-    upsert(client, "IntentSecurityRule", policy=policy.id,
+    upsert(client, "IntentSecurityRule", contract=contract_sec.id,
            name="deny-internet-to-tenant", index=20, action="deny", protocol="any",
            src_zone=zones["internet-peers"].id,
            dst_prefixes=[prefixes["10.84.0.0/16"].id])
 
+    # ------------------------------------------------- realm: reliability
+    print("==> reliability realm")
+    i_rel = intent(
+        "custc-resilience", "reliability",
+        "Customer C survives the loss of any single PE or POP without losing "
+        "the VPN service.",
+        tenant=tenant.id, priority="high", owner="customer-success-emea",
+    )
+    p_rel = policy(
+        "custc-redundancy", i_rel,
+        "Dual-homed CEs across distinct failure domains.",
+        enforcement="design_time")
     upsert(
-        client, "IntentReliability",
+        client, "IntentReliabilityContract",
         name="custc-reliability",
-        tenant=tenant.id,
+        policy=p_rel.id,
         min_pe_attachments=2,
         require_distinct_failure_domains=True,
     )
+    invariant("custc-redundancy-floor", p_rel, "redundancy",
+              "At least two PE attachments in distinct failure domains at all times")
 
-    print("==> observability signals")
+    # ----------------------------------------------- realm: observability
+    print("==> observability realm")
+    i_assure = intent(
+        "custc-service-assurance", "observability",
+        "Customer C's service health is continuously evidenced: session state, "
+        "route counts and export violations page before the customer notices.",
+        tenant=tenant.id, priority="high", owner="noc-emea",
+    )
+    p_assure = policy(
+        "custc-telemetry", i_assure,
+        "Collect and alert on the signals that prove the routing contracts hold.",
+        enforcement="runtime")
+    contract_obs_custc = upsert(
+        client, "IntentObservabilityContract",
+        name="custc-service-signals",
+        description="Signals that keep customer C's routing contracts honest",
+        policy=p_assure.id,
+    )
     upsert(client, "IntentObservabilitySignal",
            name="custc-bgp-session-state", signal="bgp_session_state",
            frequency_seconds=10, severity="sev2", condition="down_for > 60s",
-           contract=contract_ce.id, tenant=tenant.id)
+           contract=contract_obs_custc.id, watches=contract_ce.id)
     upsert(client, "IntentObservabilitySignal",
            name="custc-bgp-route-count", signal="bgp_route_count",
            direction="inbound", frequency_seconds=30, severity="sev2",
            condition="count > max_prefixes",
-           contract=contract_ce.id, tenant=tenant.id)
+           contract=contract_obs_custc.id, watches=contract_ce.id)
     upsert(client, "IntentObservabilitySignal",
            name="inet-peer-export-violation", signal="policy_export_violation",
            direction="outbound", frequency_seconds=30, severity="sev1",
            condition="count > 5",
-           contract=contract_inet.id, tenant=tenant.id)
+           contract=contract_obs_custc.id, watches=contract_inet.id)
+    invariant("custc-observable", p_assure, "capability_present",
+              "Every device a watched contract runs on must expose a telemetry capability")
+
+    i_fleet = intent(
+        "fleet-management-plane", "observability",
+        "Every production device stays reachable over the out-of-band "
+        "management plane, independent of the forwarding plane.",
+        priority="critical", owner="noc-emea",
+    )
+    p_fleet = policy(
+        "fleet-oob-monitoring", i_fleet,
+        "Ping every device over OOB; alert on loss.",
+        enforcement="runtime")
+    contract_obs_fleet = upsert(
+        client, "IntentObservabilityContract",
+        name="fleet-baseline",
+        description="Fleet-wide management-plane signals",
+        policy=p_fleet.id,
+    )
     upsert(client, "IntentObservabilitySignal",
            name="fleet-oob-reachability", signal="device_reachability",
-           frequency_seconds=60, severity="sev3", condition="loss > 50%")
+           frequency_seconds=60, severity="sev3", condition="loss > 50%",
+           contract=contract_obs_fleet.id)
+    invariant("fleet-oob-cabled", p_fleet, "oob_reachability",
+              "Every device keeps a management interface cabled to the OOB plane")
 
     # ------------------------------------------------------------------
     # Groups: targeted checks + artifact targets
@@ -411,9 +559,20 @@ def main():
     upsert(client, "CoreStandardGroup", name="monitored_devices", members=routers)
     upsert(client, "CoreStandardGroup", name="oob_switches",
            members=[devices["oob-sw-01"].id])
-    upsert(client, "CoreStandardGroup", name="intent_contracts",
+    upsert(client, "CoreStandardGroup", name="routing_contracts",
            members=[contract_ce.id, contract_inet.id, contract_core.id])
+    upsert(client, "CoreStandardGroup", name="observability_contracts",
+           members=[contract_obs_custc.id, contract_obs_fleet.id])
     upsert(client, "CoreStandardGroup", name="intent_tenants", members=[tenant.id])
+
+    # legacy group from the flat model - drop it if it survived a migration
+    try:
+        legacy = client.get(kind="CoreStandardGroup",
+                            name__value="intent_contracts", branch=BRANCH)
+        legacy.delete()
+        print("    dropped legacy group intent_contracts")
+    except Exception:
+        pass
 
     print("done. Open a Proposed Change and watch the invariants run.")
 

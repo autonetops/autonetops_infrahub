@@ -5,12 +5,23 @@ inside the owning tenant's segments (the prefixes assigned to the
 tenant's VRFs). A contract cannot authorize address space the tenant does
 not own - that is how hijacks and fat-finger announcements get through.
 
-Targeted check: runs once per member of the ``intent_contracts`` group.
+Targeted check: runs once per member of the ``routing_contracts`` group.
+The tenant hangs off the contract's policy:
+contract -> policy -> intent -> tenant.
 """
 
 import ipaddress
 
 from infrahub_sdk.checks import InfrahubCheck
+
+
+def _policy(node):
+    return (node.get("policy") or {}).get("node") or {}
+
+
+def _tenant(node):
+    intent = (_policy(node).get("intent") or {}).get("node") or {}
+    return (intent.get("tenant") or {}).get("node")
 
 
 class ContractPrefixAuthorizationCheck(InfrahubCheck):
@@ -23,7 +34,7 @@ class ContractPrefixAuthorizationCheck(InfrahubCheck):
         contract = contracts[0]["node"]
         name = contract["name"]["value"]
 
-        tenant = (contract.get("tenant") or {}).get("node")
+        tenant = _tenant(contract)
         if tenant is None:
             # Infrastructure contracts (peering/transit) own no tenant space.
             return
@@ -53,7 +64,7 @@ class ContractPrefixAuthorizationCheck(InfrahubCheck):
             )
             if not authorized:
                 self.log_error(
-                    message=f"Invariant violated (prefix-authorization): contract "
+                    message=f"Invariant violated (prefix_authorization): contract "
                             f"{name} authorizes {allowed}, which is outside every "
                             f"segment owned by tenant '{tenant['name']['value']}'",
                 )

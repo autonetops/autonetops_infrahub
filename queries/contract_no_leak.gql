@@ -8,13 +8,6 @@ query contract_no_leak($contract: String!) {
         role {
           value
         }
-        tenant {
-          node {
-            name {
-              value
-            }
-          }
-        }
         export_deny_zones {
           edges {
             node {
@@ -24,11 +17,35 @@ query contract_no_leak($contract: String!) {
             }
           }
         }
-        invariants {
-          edges {
-            node {
-              invariant_type {
-                value
+        policy {
+          node {
+            name {
+              value
+            }
+            invariants {
+              edges {
+                node {
+                  invariant_type {
+                    value
+                  }
+                  severity {
+                    value
+                  }
+                }
+              }
+            }
+            intent {
+              node {
+                name {
+                  value
+                }
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
               }
             }
           }

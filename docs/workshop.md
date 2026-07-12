@@ -1,32 +1,61 @@
 # Intent-Based Networking Workshop
 
 Follow-along lab for the article *"Modeling Intent for Real Networks"*.
-InfraHub is the intent source of truth; the schema-library `experimental/intent`
-extension is the vendor-agnostic contract layer; this repo is the pipeline:
-checks gate intent, transforms compile it, containerlab runs it, and
+InfraHub is the intent source of truth; `schemas/intent.yml` (in this repo)
+is the vendor-agnostic contract layer; this repo is the pipeline: checks
+gate intent, transforms compile it, containerlab runs it, and
 telegraf → Prometheus → Grafana prove it.
 
 **The design law:** intent is stable; renderers change. Expectations are the proof.
+
+## The intent model
+
+Intents live in **realms** — domains of concern: `routing`, `reachability`,
+`security`, `observability`, `reliability` (seeded and populated), plus
+`compliance` and `performance` (seeded, awaiting their first intents). An
+intent is achieved via **policies**, and each policy carries the two things
+that make it enforceable:
+
+```
+IntentRealm                 the domain of concern
+  └─ IntentIntent           the declared outcome (tenant, priority, statement)
+       └─ IntentPolicy      how it is realized (enforcement: design_time/runtime/full)
+            ├─ contracts    IntentContract subtypes - typed, machine-renderable
+            │               promises: RoutingContract, ReachabilityContract,
+            │               SecurityContract, ObservabilityContract,
+            │               ReliabilityContract
+            └─ invariants   IntentInvariant - conditions that must always hold;
+                            compiled into merge-gating checks (severity:
+                            blocking | warning)
+```
+
+Contracts are what the compilers consume (configs, expectations, collectors,
+alerts, dashboards); invariants are what the checks enforce. Supporting
+vocabulary — `IntentTenant`, `IntentZone`, `IntentCapability` — anchors the
+who/where/what-can-the-box-do.
 
 ## Architecture recap
 
 ```
  InfraHub (intent SoT)
-   branch -> edit intent -> Proposed Change
-     |            checks: no-leak, prefix-auth, redundancy,
+   branch -> edit realm/intent/policy/contract -> Proposed Change
+     |            invariants gate the merge: no-leak, prefix-auth, redundancy,
      |                    OOB reachability, observability capability
      v  merge = compile
    artifacts: device configs | expectations | telegraf inputs
               prometheus rules | grafana dashboards
-     v  fetch_artifacts.py + deploy_configs.py   (execution stand-in)
+     v  delivery: autonetops_ibn (planner -> Plan -> ibnctl -> drivers)
+        or fetch_artifacts.py + deploy_configs.py as the hand-run stand-in
    containerlab: 2x cEOS PE + cisco IOL RR + SR Linux CEs + FRR peer + OOB bridge
      v  evidence
    telegraf (gNMI or CLI-scrape, capability-driven) -> Prometheus -> Grafana
 ```
 
-The execution/orchestration layer is deliberately out of scope. Where it
-would sit, this lab uses two scripts you run by hand — the *behavior* a real
-runner would have is documented in each script's docstring.
+The full execution/orchestration layer lives in the companion
+`autonetops_ibn` project: its planner diffs artifact listings into a staged,
+canary-first Plan, and `ibnctl` walks the Plan through executor drivers
+(snapshot → dry_run → apply → rollback-on-failure, evidence per verb). The
+two scripts in this repo remain the minimal hand-run path.
 
 ## Phase 0 — Foundations
 
@@ -38,7 +67,7 @@ infrahubctl schema load ../schema-library/extensions/vrf \
                         ../schema-library/extensions/cable \
                         ../schema-library/extensions/location_minimal \
                         ../schema-library/extensions/routing_bgp
-infrahubctl schema load ../schema-library/experimental/intent
+infrahubctl schema load schemas/intent.yml
 ```
 
 Add this repo to InfraHub as a Git repository (Integrations → Repository) so
@@ -49,12 +78,20 @@ definitions.
 
 Browse the schema in the UI. The things to notice:
 
+- **The hierarchy is navigable end to end**: open the `routing` realm →
+  `custc-l3vpn-connectivity` intent → `custc-edge-routing` policy → the
+  `custc-ce-to-pe` contract and its three invariants. Every artifact and
+  every merge gate traces back to a realm through this chain.
 - **Zones, capabilities, roles, severities are controlled vocabularies.**
   There is no field where "internet-peers " (trailing space) can silently
   fracture the model.
 - **`IntentRoutingContract` never names a mechanism.** No route-map, no
   policy-options, no vendor block. Try to find a place to put an SR Linux knob
   — there isn't one. That's principle A.
+- **Invariants are declared objects, not tribal rules.** `custc-no-leak`
+  (blocking), `custc-prefix-authorization` (blocking),
+  `custc-reachability-preserved` (warning) — each names its type and severity
+  on the policy it guards, and each maps onto a check.
 - **`DcimPlatform.capabilities`** is where "this Cisco has no gNMI" lives as
   data. Everything downstream branches on it.
 
@@ -66,10 +103,11 @@ python scripts/bootstrap.py
 ```
 
 This loads: 7 devices (2 PEs, 1 RR, 2 CEs, 1 internet peer, 1 OOB switch),
-full cabling including the OOB plane, the CUSTC-PROD VRF and prefixes, the
-tenant, three contracts (`custc-ce-to-pe`, `inet-peering-emea`,
-`ibgp-core-rr`), invariants, reachability, security, reliability and four
-observability signals — plus the groups the pipeline targets.
+full cabling including the OOB plane, the CUSTC-PROD VRF and prefixes, and
+the intent hierarchy — 7 realms, 8 intents, 8 policies, 8 contracts across
+five realms, 8 invariants and 4 observability signals — plus the groups the
+pipeline targets (`network_devices`, `monitored_devices`, `oob_switches`,
+`routing_contracts`, `observability_contracts`, `intent_tenants`).
 
 Do it on a branch and open a Proposed Change to watch every check run green
 before merging.
@@ -191,11 +229,18 @@ OOB reachability.
 ## Phase 7 — Bring the lab up and close the loop
 
 ```bash
-cd containerlab && sudo containerlab deploy -t topology.clab.yml
+cd clab && sudo containerlab deploy -t lab.clab.yml
 python scripts/fetch_artifacts.py         # artifacts -> build/ + monitoring/
 python scripts/deploy_configs.py          # push configs (execution stand-in)
 cd monitoring && docker compose up -d --build
 ```
+
+Delivery works over the network (SSH, admin/admin) — the lab host and the
+control host need not be the same machine. One address-planning rule learned
+the hard way: **modeled underlay space must never overlap the management
+path**. The core links live in `10.100.0.0/24` because a control host on
+`10.0.0.0/24` would otherwise lose SSH to a PE the moment its core interface
+comes up (the return path flips into the data plane).
 
 Grafana: http://localhost:3000 · Prometheus: http://localhost:9090.
 Wait for sessions to establish, then the drift exercises:
@@ -224,23 +269,30 @@ declared 30s budget.
 `*-telemetry-stale` alert fires: if you can't observe it, you can't claim
 compliance.
 
-## Where a real execution layer plugs in
+## Where the real execution layer plugs in
 
-Everything below is *behavioral* description — nothing here is built, on
-purpose:
+The companion `autonetops_ibn` project now carries the first working slice
+of this layer, exercised against this very lab:
 
-1. A runner subscribes to InfraHub merge/artifact events.
-2. On change, it fetches `device-configuration` artifacts and pushes them
-   (gNMI Set / NETCONF / CLI — capability-driven, like everything else),
-   ideally canary-first with automatic rollback on failed post-checks.
-3. A validator loads `contract-expectations` artifacts and continuously
-   evaluates them against the same Prometheus evidence, emitting
-   `intent_compliance{contract=...} 0|1` — which becomes the rollout gate:
-   a deploy isn't done when configs are pushed, it's done when expectations
-   hold.
-4. Safe drift classes (collector restart, session flap within budget)
-   auto-remediate; invariant violations (a leak) page a human with the
-   evidence bundle attached.
+1. **Planner** (`autonetops-planner plan`): diffs two branches' artifact
+   listings by checksum, computes blast radius over affected devices, and
+   emits a staged, canary-first **Plan** (single-target canary + soak gate,
+   then remainder). Protocol selection is two-axis: what the platform
+   prefers AND what the artifact's `content_format` can ride — CLI text
+   goes to cli/eAPI drivers; the moment a compiler emits model-based
+   artifacts (ietf-xml / openconfig-json), NETCONF/gNMI win automatically.
+2. **ibnctl** (`ibnctl --plan plan.yaml [--check]`): walks the Plan through
+   executor drivers — resolve the device's address from the SoT, fetch the
+   artifact content, verify its checksum, then snapshot → dry_run (a real
+   diff from a private candidate / config session) → apply → rollback to
+   the checkpoint on failure. Every verb appends to an evidence JSONL.
+   Drivers exist for SR Linux and EOS (CLI), plus a generic NETCONF driver
+   (candidate + confirmed-commit) awaiting model-based artifacts.
+3. **Still pending:** a validator that loads `contract-expectations` and
+   continuously evaluates them against Prometheus evidence, emitting
+   `intent_compliance{contract=...} 0|1` — the gate ibnctl currently
+   reports as "not evaluated". And auto-remediation for safe drift classes;
+   invariant violations (a leak) page a human with the evidence attached.
 
 ## Caveats (honest lab notes)
 

@@ -1,60 +1,91 @@
 query prometheus_rules($contract: String!) {
-  IntentRoutingContract(name__value: $contract) {
+  IntentObservabilityContract(name__value: $contract) {
     edges {
       node {
         name {
           value
         }
-        max_prefixes_ipv4 {
-          value
-        }
-        max_prefixes_ipv6 {
-          value
-        }
-        tenant {
+        policy {
           node {
             name {
               value
             }
+            intent {
+              node {
+                name {
+                  value
+                }
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
+            }
           }
         }
-        pe_devices {
+        signals {
           edges {
             node {
               name {
                 value
               }
-            }
-          }
-        }
-      }
-    }
-  }
-  IntentObservabilitySignal {
-    edges {
-      node {
-        name {
-          value
-        }
-        signal {
-          value
-        }
-        direction {
-          value
-        }
-        frequency_seconds {
-          value
-        }
-        severity {
-          value
-        }
-        condition {
-          value
-        }
-        contract {
-          node {
-            name {
-              value
+              signal {
+                value
+              }
+              direction {
+                value
+              }
+              frequency_seconds {
+                value
+              }
+              severity {
+                value
+              }
+              condition {
+                value
+              }
+              watches {
+                node {
+                  name {
+                    value
+                  }
+                  ... on IntentRoutingContract {
+                    max_prefixes_ipv4 {
+                      value
+                    }
+                    max_prefixes_ipv6 {
+                      value
+                    }
+                    policy {
+                      node {
+                        intent {
+                          node {
+                            tenant {
+                              node {
+                                name {
+                                  value
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                    pe_devices {
+                      edges {
+                        node {
+                          name {
+                            value
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }

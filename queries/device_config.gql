@@ -170,34 +170,60 @@ query device_config($device: String!) {
             }
           }
         }
-        tenant {
+        policy {
           node {
             name {
               value
             }
-            tenant_community {
-              value
-            }
-            vrfs {
+            invariants {
               edges {
                 node {
-                  name {
+                  invariant_type {
                     value
                   }
-                  vrf_rd {
+                  severity {
                     value
                   }
-                  import_rt {
-                    node {
-                      name {
-                        value
-                      }
+                }
+              }
+            }
+            intent {
+              node {
+                name {
+                  value
+                }
+                tenant {
+                  node {
+                    name {
+                      value
                     }
-                  }
-                  export_rt {
-                    node {
-                      name {
-                        value
+                    tenant_community {
+                      value
+                    }
+                    vrfs {
+                      edges {
+                        node {
+                          name {
+                            value
+                          }
+                          vrf_rd {
+                            value
+                          }
+                          import_rt {
+                            node {
+                              name {
+                                value
+                              }
+                            }
+                          }
+                          export_rt {
+                            node {
+                              name {
+                                value
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -287,15 +313,6 @@ query device_config($device: String!) {
             }
           }
         }
-        invariants {
-          edges {
-            node {
-              invariant_type {
-                value
-              }
-            }
-          }
-        }
       }
     }
   }
@@ -311,7 +328,7 @@ query device_config($device: String!) {
       }
     }
   }
-  IntentSecurityPolicy {
+  IntentSecurityContract {
     edges {
       node {
         name {
@@ -326,10 +343,18 @@ query device_config($device: String!) {
         attach_interface_role {
           value
         }
-        tenant {
+        policy {
           node {
-            name {
-              value
+            intent {
+              node {
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
             }
           }
         }

@@ -14,16 +14,42 @@ query contract_prefix_authorization($contract: String!) {
             }
           }
         }
-        tenant {
+        policy {
           node {
             name {
               value
             }
-            vrfs {
+            invariants {
               edges {
                 node {
-                  name {
+                  invariant_type {
                     value
+                  }
+                  severity {
+                    value
+                  }
+                }
+              }
+            }
+            intent {
+              node {
+                name {
+                  value
+                }
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                    vrfs {
+                      edges {
+                        node {
+                          name {
+                            value
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }

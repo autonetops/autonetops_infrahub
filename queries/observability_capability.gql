@@ -8,30 +8,32 @@ query observability_capability {
         signal {
           value
         }
-        contract {
+        watches {
           node {
             name {
               value
             }
-            pe_devices {
-              edges {
-                node {
-                  name {
-                    value
-                  }
-                  platform {
-                    node {
-                      name {
-                        value
-                      }
-                      capabilities {
-                        edges {
-                          node {
-                            name {
-                              value
-                            }
-                            category {
-                              value
+            ... on IntentRoutingContract {
+              pe_devices {
+                edges {
+                  node {
+                    name {
+                      value
+                    }
+                    platform {
+                      node {
+                        name {
+                          value
+                        }
+                        capabilities {
+                          edges {
+                            node {
+                              name {
+                                value
+                              }
+                              category {
+                                value
+                              }
                             }
                           }
                         }

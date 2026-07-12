@@ -7,11 +7,14 @@
 #       configs + expectations + observability bundles out
 #
 # Group targets (created by scripts/bootstrap.py):
-#   network_devices   - every routing node (config artifacts)
-#   monitored_devices - devices with telemetry requirements
-#   intent_contracts  - IntentRoutingContract nodes (targeted checks + artifacts)
-#   intent_tenants    - IntentTenant nodes (dashboards)
-#   oob_switches      - OOB management switches (consumed by the OOB check)
+#   network_devices         - every routing node (config artifacts)
+#   monitored_devices       - devices with telemetry requirements
+#   routing_contracts       - IntentRoutingContract nodes (targeted checks +
+#                             expectation artifacts)
+#   observability_contracts - IntentObservabilityContract nodes (alert-rule
+#                             artifacts)
+#   intent_tenants          - IntentTenant nodes (dashboards)
+#   oob_switches            - OOB management switches (consumed by the OOB check)
 
 queries:
   - name: oob_reachability
@@ -48,13 +51,13 @@ check_definitions:
   - name: contract_no_leak_check
     class_name: ContractNoLeakCheck
     file_path: "checks/contract_no_leak.py"
-    targets: intent_contracts
+    targets: routing_contracts
     parameters:
       contract: name__value
   - name: contract_prefix_authorization_check
     class_name: ContractPrefixAuthorizationCheck
     file_path: "checks/contract_prefix_authorization.py"
-    targets: intent_contracts
+    targets: routing_contracts
     parameters:
       contract: name__value
 
@@ -95,7 +98,7 @@ artifact_definitions:
   - name: contract-expectations
     artifact_name: contract-expectations
     content_type: text/plain
-    targets: intent_contracts
+    targets: routing_contracts
     transformation: contract_expectations
     parameters:
       contract: name__value
@@ -103,7 +106,7 @@ artifact_definitions:
   - name: prometheus-rules
     artifact_name: prometheus-rules
     content_type: text/plain
-    targets: intent_contracts
+    targets: observability_contracts
     transformation: prometheus_rules
     parameters:
       contract: name__value

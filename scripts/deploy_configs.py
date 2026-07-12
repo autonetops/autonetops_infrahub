@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Push compiled device configurations to the containerlab nodes.
+"""Push compiled device configurations to the lab nodes.
 
-Stand-in for the execution layer (deliberately out of scope): a one-shot
-push of build/configs/*.cfg produced by fetch_artifacts.py. Transport is
-selected per platform - the same capability-driven dispatch the
-compilers use, at the delivery stage:
+Stand-in for the execution layer (the real one lives in autonetops_ibn):
+a one-shot push of build/configs/*.cfg produced by fetch_artifacts.py.
+Transport is selected per platform - the same capability-driven dispatch
+the compilers use, at the delivery stage:
 
     arista_eos / cisco_iosxe -> SSH CLI (netmiko)
     juniper_junos            -> SSH CLI (netmiko), `set` lines + commit
-    nokia_srlinux            -> docker exec sr_cli (its ANSI CLI does not
-                                screen-scrape over SSH), `set` lines + commit
-    frr                      -> docker exec vtysh (no SSH daemon needed)
+    nokia_srlinux            -> SSH CLI (netmiko nokia_srl): candidate
+                                private, `set` lines, commit stay + save.
+                                Falls back to the factory NokiaSrl1!
+                                password and converges the box onto
+                                SRL_USER/SRL_PASSWORD as part of the push.
+    frr                      -> docker exec vtysh when the container runs
+                                locally; skipped otherwise (no sshd)
 
 Every platform here also claims `netconf`, and a production runner would
 prefer it (or gNMI Set on the cEOS PEs) over screen-scraping a CLI. The
@@ -27,6 +31,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import time
 
 from netmiko import ConnectHandler
 
@@ -38,19 +43,21 @@ SSH_PASSWORD = os.environ.get("SSH_PASSWORD", "admin")
 # containerlab seeds vJunos with admin/admin@123
 JUNOS_USER = os.environ.get("JUNOS_USER", "admin")
 JUNOS_PASSWORD = os.environ.get("JUNOS_PASSWORD", "admin@123")
-# SR Linux is driven via `docker exec sr_cli` (see push_srl), not SSH, so
-# delivery needs no credentials. The push sets the admin password to
-# SRL_PASSWORD so external access (SSH/gNMI) still lands on admin/admin.
+# SR Linux ships with admin/NokiaSrl1! from the factory; the push tries
+# SRL_PASSWORD first, falls back to the factory password, and sets the
+# admin password to SRL_PASSWORD so external access (SSH/gNMI) converges
+# on admin/admin.
 SRL_USER = os.environ.get("SRL_USER", "admin")
 SRL_PASSWORD = os.environ.get("SRL_PASSWORD", "admin")
+SRL_FACTORY_PASSWORD = os.environ.get("SRL_FACTORY_PASSWORD", "NokiaSrl1!")
 
-# device -> (platform, ssh address | container name)
+# device -> (platform, ssh address, frr container name when local)
 INVENTORY = {
     "pe-emea-01": ("arista_eos", "172.20.20.11"),
     "pe-emea-02": ("arista_eos", "172.20.20.12"),
     "core-rr-01": ("cisco_iosxe", "172.20.20.13"),
-    "ce-custc-01": ("nokia_srlinux", "clab-intent-lab-ce-custc-01"),
-    "ce-custc-02": ("nokia_srlinux", "clab-intent-lab-ce-custc-02"),
+    "ce-custc-01": ("nokia_srlinux", "172.20.20.21"),
+    "ce-custc-02": ("nokia_srlinux", "172.20.20.22"),
     "peer-inet-01": ("frr", "clab-intent-lab-peer-inet-01"),
 }
 
@@ -111,6 +118,16 @@ def push_cli(platform, host, config):
 
 
 def push_frr(container, config):
+    """FRR has no sshd; only deliverable when its container runs locally."""
+    probe = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Running}}", container],
+        capture_output=True, text=True,
+    )
+    if probe.returncode != 0 or probe.stdout.strip() != "true":
+        raise RuntimeError(
+            f"container {container} not running locally - FRR is only "
+            f"deliverable from the containerlab host"
+        )
     body = "\n".join(
         line for line in config.splitlines() if not line.startswith("!")
     )
@@ -121,46 +138,77 @@ def push_frr(container, config):
     ).stdout
 
 
-def push_srl(container, config):
-    """Deliver an SR Linux config via `docker exec sr_cli`.
+def _srl_mode_banner(conn):
+    """SR Linux prints a `--{ <mode> }--[ <context> ]--` banner above every
+    prompt; a bare newline is the cheapest way to read the current mode."""
+    conn.write_channel("\n")
+    time.sleep(0.7)
+    return conn.read_channel()
 
-    SR Linux's ANSI-heavy interactive CLI does not screen-scrape reliably
-    over SSH (netmiko cannot track the candidate-mode prompt), so - as with
-    FRR - the lab drives the container directly. Delivery needs no
-    credentials; the admin password is set as the first line so external
-    access (SSH/gNMI) still lands on SRL_USER/SRL_PASSWORD.
+
+def _srl_enter_candidate(conn, attempts=3):
+    """Enter (and VERIFY) a private candidate. On a busy box the first
+    command after login can get merged with netmiko's session-prep lines and
+    silently never execute - so check the mode banner and retry."""
+    _srl_mode_banner(conn)  # settle the channel first
+    for _ in range(attempts):
+        conn.send_command_timing("enter candidate private")
+        if "candidate" in _srl_mode_banner(conn):
+            return
+        time.sleep(1)
+    raise RuntimeError("could not enter SR Linux candidate mode")
+
+
+def push_srl(host, config):
+    """Deliver an SR Linux config over SSH (netmiko ``nokia_srl``).
+
+    The driver enters a *private* candidate (isolated from other sessions),
+    sources the ``set`` lines, then ``commit stay`` + ``save startup``. The
+    push tries SRL_PASSWORD first and falls back to the factory password;
+    either way the admin password is set as part of the payload so the box
+    converges on SRL_USER/SRL_PASSWORD for SSH and gNMI.
     """
     lines = [f"set / system aaa authentication admin-user password {SRL_PASSWORD}"]
     lines += [
         line for line in config.splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    subprocess.run(
-        ["docker", "exec", "-i", container, "sh", "-c",
-         "cat > /tmp/infrahub-config.cli"],
-        input="\n".join(lines), capture_output=True, text=True, check=True,
-    )
-    # A *private* candidate isolates this push. SR Linux's shared default
-    # candidate (`-e`) keeps a partially-applied `source` across sr_cli
-    # invocations, so one failed push poisons the next (its leftover lines
-    # ride along into the following commit); `-E private` is discarded when
-    # the process exits without committing.
-    result = subprocess.run(
-        ["docker", "exec", container, "sr_cli", "-E", "private",
-         "--post-command", "commit save", "source /tmp/infrahub-config.cli"],
-        capture_output=True, text=True, check=False,
-    )
-    out = result.stdout + result.stderr
-    # check=False above: sr_cli exits non-zero on a source parse error but 0
-    # on some commit-time failures, so the exit code alone is unreliable.
-    # Scan the output for the commit confirmation and SR Linux's error
-    # phrasings instead - this also surfaces sr_cli's own message (e.g.
-    # "Failed to parse value 'None'") rather than a bare CalledProcessError.
-    low = out.lower()
-    markers = ("error", "unknown token", "invalid value", "failed")
-    if "committed" not in low or any(m in low for m in markers):
-        raise RuntimeError(out.strip() or "sr_cli produced no commit confirmation")
-    return out
+
+    conn = None
+    for password in (SRL_PASSWORD, SRL_FACTORY_PASSWORD):
+        try:
+            conn = ConnectHandler(
+                device_type="nokia_srl", host=host,
+                username=SRL_USER, password=password,
+            )
+            break
+        except Exception:
+            conn = None
+    if conn is None:
+        raise RuntimeError(f"SSH authentication failed for {SRL_USER}@{host}")
+
+    try:
+        # timing-based sends: SR Linux's two-line prompt plus ANSI noise makes
+        # netmiko's echo verification flaky, and a private candidate isolates
+        # the push anyway - errors are collected and checked at the end.
+        _srl_enter_candidate(conn)
+        # The named private candidate persists across sessions, so discard
+        # whatever a previous (possibly failed) push left in it first.
+        output = conn.send_command_timing("discard stay")
+        for line in lines:
+            output += conn.send_command_timing(line)
+        low = output.lower()
+        markers = ("error", "unknown token", "invalid value", "failed")
+        if any(m in low for m in markers):
+            conn.send_command_timing("discard stay")
+            raise RuntimeError(f"candidate rejected:\n{output.strip()[-800:]}")
+        committed = conn.send_command_timing("commit save")
+        if "committed" not in committed.lower():
+            raise RuntimeError(f"no commit confirmation:\n{committed.strip()[-400:]}")
+        output += committed
+    finally:
+        conn.disconnect()
+    return output
 
 
 def main():

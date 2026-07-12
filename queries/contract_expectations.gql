@@ -42,13 +42,55 @@ query contract_expectations($contract: String!) {
             }
           }
         }
-        tenant {
+        policy {
           node {
             name {
               value
             }
-            tenant_community {
+            enforcement {
               value
+            }
+            invariants {
+              edges {
+                node {
+                  invariant_type {
+                    value
+                  }
+                  severity {
+                    value
+                  }
+                  description {
+                    value
+                  }
+                }
+              }
+            }
+            intent {
+              node {
+                name {
+                  value
+                }
+                statement {
+                  value
+                }
+                realm {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                    tenant_community {
+                      value
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -56,18 +98,6 @@ query contract_expectations($contract: String!) {
           edges {
             node {
               prefix {
-                value
-              }
-            }
-          }
-        }
-        invariants {
-          edges {
-            node {
-              invariant_type {
-                value
-              }
-              description {
                 value
               }
             }
@@ -189,7 +219,7 @@ query contract_expectations($contract: String!) {
         condition {
           value
         }
-        contract {
+        watches {
           node {
             name {
               value

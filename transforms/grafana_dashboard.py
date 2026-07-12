@@ -60,9 +60,14 @@ class GrafanaDashboardTransform(InfrahubTransform):
         tenant = data["IntentTenant"]["edges"][0]["node"]
         tenant_name = _v(tenant["name"])
 
+        def _contract_tenant(node):
+            policy = _node(node.get("policy")) or {}
+            intent = _node(policy.get("intent")) or {}
+            return _node(intent.get("tenant"))
+
         contracts = [
             c for c in _edges(data["IntentRoutingContract"])
-            if _node(c.get("tenant")) and _v(_node(c["tenant"])["name"]) == tenant_name
+            if (t := _contract_tenant(c)) and _v(t["name"]) == tenant_name
         ]
 
         panels = []

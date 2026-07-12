@@ -94,23 +94,29 @@ def _edges(rel):
 
 
 def _relevant_signals(data, device_name):
-    """Signals scoped to a contract this device attaches, plus fleet-wide
-    signals (no contract scope)."""
+    """Signals watching a routing contract this device attaches, plus
+    fleet-wide signals (watching nothing in particular)."""
     scoped, fleet = [], []
     for signal in _edges(data["IntentObservabilitySignal"]):
-        contract = _node(signal.get("contract"))
+        watched = _node(signal.get("watches"))
+        # the tenant hangs off the signal's own observability contract:
+        # signal -> contract -> policy -> intent -> tenant
+        own_contract = _node(signal.get("contract")) or {}
+        own_policy = _node(own_contract.get("policy")) or {}
+        own_intent = _node(own_policy.get("intent")) or {}
+        tenant = _node(own_intent.get("tenant"))
         entry = {
             "name": _v(signal["name"]),
             "signal": _v(signal["signal"]),
             "direction": _v(signal.get("direction")),
             "frequency": _v(signal["frequency_seconds"]) or 30,
-            "contract": _v(contract["name"]) if contract else None,
-            "tenant": _v((_node(signal.get("tenant")) or {}).get("name")),
+            "contract": _v(watched["name"]) if watched else None,
+            "tenant": _v(tenant["name"]) if tenant else None,
         }
-        if contract is None:
+        if watched is None or "pe_devices" not in watched:
             fleet.append(entry)
             continue
-        pe_names = {_v(d["name"]) for d in _edges(contract["pe_devices"])}
+        pe_names = {_v(d["name"]) for d in _edges(watched["pe_devices"])}
         if device_name in pe_names:
             scoped.append(entry)
     return scoped, fleet

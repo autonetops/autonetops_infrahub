@@ -92,7 +92,13 @@ class ContractExpectationsTransform(InfrahubTransform):
     async def transform(self, data):
         contract = data["IntentRoutingContract"]["edges"][0]["node"]
         name = _v(contract["name"])
-        tenant = _node(contract.get("tenant"))
+        # the hierarchy above the contract:
+        # contract -> policy -> intent -> (realm, tenant)
+        policy = _node(contract.get("policy")) or {}
+        intent = _node(policy.get("intent")) or {}
+        realm = _node(intent.get("realm")) or {}
+        tenant = _node(intent.get("tenant"))
+        invariants = _edges(policy.get("invariants"))
 
         sessions = []
         for s in _derive_sessions(contract):
@@ -124,7 +130,7 @@ class ContractExpectationsTransform(InfrahubTransform):
         ]
 
         forbidden_actions = []
-        for inv in _edges(contract.get("invariants")):
+        for inv in invariants:
             itype = _v(inv["invariant_type"])
             if itype == "no_leak" and tenant:
                 forbidden_actions.append(
@@ -138,8 +144,8 @@ class ContractExpectationsTransform(InfrahubTransform):
         telemetry = []
         alerting = []
         for signal in _edges(data["IntentObservabilitySignal"]):
-            scoped = _node(signal.get("contract"))
-            if not scoped or _v(scoped["name"]) != name:
+            watched = _node(signal.get("watches"))
+            if not watched or _v(watched["name"]) != name:
                 continue
             freq = _v(signal["frequency_seconds"]) or 30
             telemetry.append({
@@ -159,6 +165,11 @@ class ContractExpectationsTransform(InfrahubTransform):
             "kind": "ContractExpectations",
             "metadata": {
                 "name": name,
+                "realm": _v(realm.get("name")),
+                "intent": _v(intent.get("name")),
+                "statement": _v(intent.get("statement")),
+                "policy": _v(policy.get("name")),
+                "enforcement": _v(policy.get("enforcement")),
                 "tenant": _v(tenant["name"]) if tenant else None,
                 "zone": _v((_node(contract.get("zone")) or {}).get("name")),
             },

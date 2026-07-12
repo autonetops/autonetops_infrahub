@@ -102,10 +102,25 @@ def parse_device(data):
     }
 
 
+def _contract_policy(node):
+    """A contract's policy context: (invariant types, tenant node).
+
+    The intent hierarchy hangs tenants and invariants off the policy:
+    contract -> policy -> intent -> tenant and contract -> policy -> invariants.
+    """
+    policy = _node(node.get("policy")) or {}
+    intent = _node(policy.get("intent")) or {}
+    tenant = _node(intent.get("tenant"))
+    invariants = [
+        _v(i["invariant_type"]) for i in _edges(policy.get("invariants"))
+    ]
+    return invariants, tenant
+
+
 def parse_contracts(data):
     contracts = []
     for node in _edges(data["IntentRoutingContract"]):
-        tenant = _node(node.get("tenant"))
+        invariants, tenant = _contract_policy(node)
         vrf = None
         if tenant:
             vrfs = _edges(tenant.get("vrfs"))
@@ -144,9 +159,7 @@ def parse_contracts(data):
             "allowed_prefixes": [
                 _v(p["prefix"]) for p in _edges(node.get("allowed_prefixes"))
             ],
-            "invariants": [
-                _v(i["invariant_type"]) for i in _edges(node.get("invariants"))
-            ],
+            "invariants": invariants,
         })
     return contracts
 
@@ -170,7 +183,7 @@ def _parse_contract_devices(rel):
 
 def parse_security(data, device_role):
     policies = []
-    for node in _edges(data.get("IntentSecurityPolicy") or {"edges": []}):
+    for node in _edges(data.get("IntentSecurityContract") or {"edges": []}):
         if _v(node["attach_device_role"]) != device_role:
             continue
         rules = []
@@ -188,11 +201,12 @@ def parse_security(data, device_role):
                 ],
             })
         rules.sort(key=lambda r: r["index"] or 0)
+        _, tenant = _contract_policy(node)
         policies.append({
             "name": _v(node["name"]),
             "ddos_profile": _v(node["ddos_profile"]),
             "attach_interface_role": _v(node["attach_interface_role"]),
-            "tenant": _v((_node(node.get("tenant")) or {}).get("name")),
+            "tenant": _v(tenant["name"]) if tenant else None,
             "rules": rules,
         })
     return policies
@@ -516,6 +530,10 @@ def _iosxe_provider_edge(device, contracts, policies):
         lines.append(f" ip address {addr.ip} {addr.netmask}")
         if iface["role"] == "core":
             lines += [" ip ospf 1 area 0", " mpls ip"]
+        elif iface["name"].lower().startswith(LOOPBACK_PREFIXES):
+            # the iBGP/LDP anchor: without an area the loopback is never
+            # advertised and every loopback-sourced session stays Idle
+            lines.append(" ip ospf 1 area 0")
         acl = _iosxe_acl_name(policies, iface["role"])
         if acl:
             lines.append(f" ip access-group {acl} in")
@@ -524,6 +542,7 @@ def _iosxe_provider_edge(device, contracts, policies):
     lines += [
         "router ospf 1",
         f" router-id {loopback_ip(device['interfaces'])}",
+        " passive-interface Loopback0",
         "!",
     ]
 
@@ -677,6 +696,10 @@ def render_arista_eos(device, contracts, policies):
         lines.append(f" ip address {iface['ips'][0]}")
         if iface["role"] == "core":
             lines += [" ip ospf area 0.0.0.0", " mpls ip"]
+        elif iface["name"].lower().startswith(LOOPBACK_PREFIXES):
+            # EOS: passive-interface alone does not advertise the loopback;
+            # it still needs an area assignment to enter OSPF at all
+            lines.append(" ip ospf area 0.0.0.0")
         acl = _iosxe_acl_name(policies, iface["role"])
         if acl:
             lines.append(f" ip access-group {acl} in")

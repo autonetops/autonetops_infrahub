@@ -1,18 +1,25 @@
 """Reliability invariant: attachment redundancy.
 
-For every tenant that declares redundancy (via an IntentReliability
-guardrail and/or a Reachability intent with require_redundancy), each of
-its customer_edge contracts must attach to at least ``min_pe_attachments``
-distinct PE devices - and, when required, those PEs must sit in distinct
-failure domains (different locations).
+For every tenant that declares redundancy (via a ReliabilityContract
+and/or a ReachabilityContract with require_redundancy), each of its
+customer_edge routing contracts must attach to at least
+``min_pe_attachments`` distinct PE devices - and, when required, those
+PEs must sit in distinct failure domains (different locations).
 
 This is the guardrail that stops the design from quietly degrading as
-exceptions accumulate.
+exceptions accumulate. Tenants hang off each contract's policy:
+contract -> policy -> intent -> tenant.
 """
 
 from infrahub_sdk.checks import InfrahubCheck
 
 DEFAULT_MIN_ATTACHMENTS = 2
+
+
+def _tenant(node):
+    policy = (node.get("policy") or {}).get("node") or {}
+    intent = (policy.get("intent") or {}).get("node") or {}
+    return (intent.get("tenant") or {}).get("node")
 
 
 class TenantRedundancyCheck(InfrahubCheck):
@@ -21,9 +28,9 @@ class TenantRedundancyCheck(InfrahubCheck):
     def validate(self, data):
         requirements = {}
 
-        for edge in data["IntentReliability"]["edges"]:
+        for edge in data["IntentReliabilityContract"]["edges"]:
             node = edge["node"]
-            tenant = (node.get("tenant") or {}).get("node")
+            tenant = _tenant(node)
             if not tenant:
                 continue
             requirements[tenant["name"]["value"]] = {
@@ -31,11 +38,11 @@ class TenantRedundancyCheck(InfrahubCheck):
                 "distinct_fd": bool(node["require_distinct_failure_domains"]["value"]),
             }
 
-        for edge in data["IntentReachability"]["edges"]:
+        for edge in data["IntentReachabilityContract"]["edges"]:
             node = edge["node"]
             if not node["require_redundancy"]["value"]:
                 continue
-            tenant = (node.get("tenant") or {}).get("node")
+            tenant = _tenant(node)
             if not tenant:
                 continue
             requirements.setdefault(
@@ -45,7 +52,7 @@ class TenantRedundancyCheck(InfrahubCheck):
 
         for edge in data["IntentRoutingContract"]["edges"]:
             contract = edge["node"]
-            tenant = (contract.get("tenant") or {}).get("node")
+            tenant = _tenant(contract)
             if not tenant or tenant["name"]["value"] not in requirements:
                 continue
             req = requirements[tenant["name"]["value"]]

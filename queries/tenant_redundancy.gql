@@ -1,5 +1,5 @@
 query tenant_redundancy {
-  IntentReliability {
+  IntentReliabilityContract {
     edges {
       node {
         name {
@@ -11,17 +11,25 @@ query tenant_redundancy {
         require_distinct_failure_domains {
           value
         }
-        tenant {
+        policy {
           node {
-            name {
-              value
+            intent {
+              node {
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
             }
           }
         }
       }
     }
   }
-  IntentReachability {
+  IntentReachabilityContract {
     edges {
       node {
         name {
@@ -30,10 +38,18 @@ query tenant_redundancy {
         require_redundancy {
           value
         }
-        tenant {
+        policy {
           node {
-            name {
-              value
+            intent {
+              node {
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -46,10 +62,18 @@ query tenant_redundancy {
         name {
           value
         }
-        tenant {
+        policy {
           node {
-            name {
-              value
+            intent {
+              node {
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
             }
           }
         }

@@ -29,10 +29,18 @@ query grafana_dashboard($tenant: String!) {
         max_prefixes_ipv4 {
           value
         }
-        tenant {
+        policy {
           node {
-            name {
-              value
+            intent {
+              node {
+                tenant {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -63,14 +71,29 @@ query grafana_dashboard($tenant: String!) {
         condition {
           value
         }
-        tenant {
+        contract {
           node {
             name {
               value
             }
+            policy {
+              node {
+                intent {
+                  node {
+                    tenant {
+                      node {
+                        name {
+                          value
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
-        contract {
+        watches {
           node {
             name {
               value

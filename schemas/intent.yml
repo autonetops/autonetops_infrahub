@@ -1,0 +1,759 @@
+# ---------------------------------------------------------------------------
+# Intent model - the IBN object hierarchy this whole repo pivots on.
+#
+#   IntentRealm            a domain of concern (routing, reachability,
+#                          security, observability, reliability, compliance,
+#                          performance)
+#     └─ IntentIntent      a declared business/network outcome, owned by a
+#                          tenant, scoped to exactly one realm
+#          └─ IntentPolicy the mechanism that realizes the intent
+#               ├─ contracts   IntentContract (generic) - typed, machine-
+#               │              renderable promises (configs, expectations,
+#               │              collectors, alerts all compile from these)
+#               └─ invariants  IntentInvariant - conditions that must always
+#                              hold; they gate Proposed Changes via checks
+#
+# Supporting kinds: IntentTenant (who), IntentZone (where), IntentCapability
+# (what a platform can do). Contracts reference DCIM/IPAM objects so the
+# compilers can anchor rendered artifacts to real devices and prefixes.
+#
+# The old flat kinds (IntentReachability, IntentReliability,
+# IntentSecurityPolicy) are retired at the bottom with `state: absent`;
+# their content moved into IntentContract subtypes.
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+generics:
+  - name: Contract
+    namespace: Intent
+    description: "A typed, machine-verifiable promise that realizes part of a policy."
+    label: "Contract"
+    icon: "mdi:file-sign"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: policy
+        peer: IntentPolicy
+        identifier: policy__contracts
+        optional: false
+        cardinality: one
+        kind: Parent
+
+nodes:
+  # ------------------------------------------------------------------ realms
+  - name: Realm
+    namespace: Intent
+    description: "A domain of concern that intents are declared in."
+    label: "Realm"
+    icon: "mdi:earth"
+    menu_placement: "IntentIntent"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        description: "routing, reachability, security, observability, reliability, compliance, performance"
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: intents
+        peer: IntentIntent
+        identifier: realm__intents
+        optional: true
+        cardinality: many
+        kind: Generic
+
+  # ----------------------------------------------------------------- intents
+  - name: Intent
+    namespace: Intent
+    description: "A declared outcome the network must achieve, scoped to one realm."
+    label: "Intent"
+    icon: "mdi:target"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: statement
+        kind: TextArea
+        description: "The intent in one human sentence - the contract with the business."
+        order_weight: 1050
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: priority
+        kind: Dropdown
+        optional: true
+        default_value: "medium"
+        order_weight: 1200
+        choices:
+          - name: critical
+            color: "#e11d48"
+          - name: high
+            color: "#f97316"
+          - name: medium
+            color: "#eab308"
+          - name: low
+            color: "#22c55e"
+      - name: status
+        kind: Dropdown
+        optional: true
+        default_value: "active"
+        order_weight: 1300
+        choices:
+          - name: draft
+            color: "#94a3b8"
+          - name: active
+            color: "#22c55e"
+          - name: suspended
+            color: "#f97316"
+          - name: retired
+            color: "#64748b"
+      - name: owner
+        kind: Text
+        optional: true
+        order_weight: 1400
+      - name: ticket
+        kind: Text
+        optional: true
+        order_weight: 1500
+    relationships:
+      - name: realm
+        peer: IntentRealm
+        identifier: realm__intents
+        optional: false
+        cardinality: one
+        kind: Attribute
+      - name: tenant
+        peer: IntentTenant
+        identifier: tenant__intents
+        optional: true
+        cardinality: one
+        kind: Attribute
+      - name: policies
+        peer: IntentPolicy
+        identifier: intent__policies
+        optional: true
+        cardinality: many
+        kind: Component
+
+  # ---------------------------------------------------------------- policies
+  - name: Policy
+    namespace: Intent
+    description: "How an intent is realized: a bundle of contracts plus the invariants that guard them."
+    label: "Policy"
+    icon: "mdi:script-text"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: enforcement
+        kind: Dropdown
+        optional: true
+        default_value: "full"
+        description: "Where this policy is enforced: design_time gates merges, runtime is watched by telemetry, full is both."
+        order_weight: 1200
+        choices:
+          - name: design_time
+            label: "Design time"
+            description: "Invariants gate Proposed Changes only."
+            color: "#60a5fa"
+          - name: runtime
+            label: "Runtime"
+            description: "Contracts are watched by telemetry only."
+            color: "#c084fc"
+          - name: full
+            label: "Full"
+            description: "Merge-gated and telemetry-watched."
+            color: "#34d399"
+    relationships:
+      - name: intent
+        peer: IntentIntent
+        identifier: intent__policies
+        optional: false
+        cardinality: one
+        kind: Parent
+      - name: contracts
+        peer: IntentContract
+        identifier: policy__contracts
+        optional: true
+        cardinality: many
+        kind: Component
+      - name: invariants
+        peer: IntentInvariant
+        identifier: policy__invariants
+        optional: true
+        cardinality: many
+        kind: Component
+
+  # -------------------------------------------------------------- invariants
+  - name: Invariant
+    namespace: Intent
+    description: "A condition that must always hold. Compiled into merge-gating checks."
+    label: "Invariant"
+    icon: "mdi:shield-lock"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: invariant_type
+        kind: Dropdown
+        order_weight: 1100
+        choices:
+          - name: no_leak
+            description: "Tenant routes must never appear outside their allowed zones."
+          - name: no_reorigination
+            description: "Routes must keep their original AS path - no re-origination."
+          - name: no_default_origination
+            description: "No default route may be originated toward this contract."
+          - name: prefix_authorization
+            description: "Only prefixes explicitly allowed by the contract may be announced."
+          - name: redundancy
+            description: "The tenant keeps the modeled level of redundancy at all times."
+          - name: capability_present
+            description: "Targeted platforms must expose the capability the contract needs."
+          - name: reachability_preserved
+            description: "Declared reachability must survive the change."
+          - name: oob_reachability
+            description: "Every device keeps a cabled management path to the OOB plane."
+      - name: severity
+        kind: Dropdown
+        optional: true
+        default_value: "blocking"
+        order_weight: 1200
+        choices:
+          - name: blocking
+            description: "A violation blocks the Proposed Change."
+            color: "#e11d48"
+          - name: warning
+            description: "A violation is reported but does not block."
+            color: "#f97316"
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1300
+    relationships:
+      - name: policy
+        peer: IntentPolicy
+        identifier: policy__invariants
+        optional: false
+        cardinality: one
+        kind: Parent
+
+  # ------------------------------------------------------ contract subtypes
+  - name: RoutingContract
+    namespace: Intent
+    description: "Routing realm: the terms of a BGP relationship - who peers, what may be announced, how it is tagged."
+    label: "Routing Contract"
+    icon: "mdi:router"
+    inherit_from:
+      - IntentContract
+      - CoreArtifactTarget
+    menu_placement: "IntentIntent"
+    attributes:
+      - name: role
+        kind: Dropdown
+        order_weight: 2000
+        choices:
+          - name: customer_edge
+            label: "Customer edge"
+          - name: core
+            label: "Core"
+          - name: internet_peering
+            label: "Internet peering"
+          - name: transit
+            label: "Transit"
+      - name: peer_asn
+        kind: Number
+        order_weight: 2100
+      - name: afi_safis
+        kind: List
+        order_weight: 2200
+      - name: local_preference
+        kind: Number
+        optional: true
+        order_weight: 2300
+      - name: max_prefixes_ipv4
+        kind: Number
+        optional: true
+        order_weight: 2400
+      - name: max_prefixes_ipv6
+        kind: Number
+        optional: true
+        order_weight: 2500
+      - name: attach_communities
+        kind: List
+        optional: true
+        order_weight: 2600
+      - name: require_communities
+        kind: List
+        optional: true
+        order_weight: 2700
+    relationships:
+      - name: zone
+        peer: IntentZone
+        identifier: routingcontract__zone
+        optional: false
+        cardinality: one
+        kind: Attribute
+      - name: pe_devices
+        peer: DcimGenericDevice
+        identifier: routingcontract__pe_devices
+        optional: true
+        cardinality: many
+        kind: Attribute
+      - name: ce_devices
+        peer: DcimGenericDevice
+        identifier: routingcontract__ce_devices
+        optional: true
+        cardinality: many
+        kind: Attribute
+      - name: allowed_prefixes
+        peer: IpamPrefix
+        identifier: routingcontract__allowed_prefixes
+        optional: true
+        cardinality: many
+        kind: Attribute
+      - name: export_tenants
+        peer: IntentTenant
+        identifier: routingcontract__export_tenants
+        optional: true
+        cardinality: many
+        kind: Attribute
+      - name: export_deny_zones
+        peer: IntentZone
+        identifier: routingcontract__export_deny_zones
+        optional: true
+        cardinality: many
+        kind: Attribute
+
+  - name: ReachabilityContract
+    namespace: Intent
+    description: "Reachability realm: a from-zone must reach a set of prefixes within a convergence budget."
+    label: "Reachability Contract"
+    icon: "mdi:lan-connect"
+    inherit_from:
+      - IntentContract
+      - CoreArtifactTarget
+    include_in_menu: false
+    attributes:
+      - name: max_convergence_seconds
+        kind: Number
+        optional: true
+        order_weight: 2000
+      - name: require_redundancy
+        kind: Boolean
+        optional: true
+        order_weight: 2100
+    relationships:
+      - name: from_zone
+        peer: IntentZone
+        identifier: reachabilitycontract__from_zone
+        optional: false
+        cardinality: one
+        kind: Attribute
+      - name: to_prefixes
+        peer: IpamPrefix
+        identifier: reachabilitycontract__to_prefixes
+        optional: true
+        cardinality: many
+        kind: Attribute
+
+  - name: SecurityContract
+    namespace: Intent
+    description: "Security realm: the filtering and hardening posture attached to a class of devices/interfaces."
+    label: "Security Contract"
+    icon: "mdi:security"
+    inherit_from:
+      - IntentContract
+      - CoreArtifactTarget
+    include_in_menu: false
+    attributes:
+      - name: attach_device_role
+        kind: Dropdown
+        order_weight: 2000
+        choices:
+          - name: pe
+          - name: core
+          - name: ce
+      - name: attach_interface_role
+        kind: Dropdown
+        order_weight: 2100
+        choices:
+          - name: peering
+          - name: cust
+          - name: core
+          - name: management
+      - name: ddos_profile
+        kind: Dropdown
+        optional: true
+        order_weight: 2200
+        choices:
+          - name: none
+          - name: standard_l3vpn
+          - name: hardened
+    relationships:
+      - name: rules
+        peer: IntentSecurityRule
+        identifier: securitycontract__rules
+        optional: true
+        cardinality: many
+        kind: Component
+
+  - name: ObservabilityContract
+    namespace: Intent
+    description: "Observability realm: the signals that must be collected and the conditions that page."
+    label: "Observability Contract"
+    icon: "mdi:eye-check"
+    inherit_from:
+      - IntentContract
+      - CoreArtifactTarget
+    include_in_menu: false
+    relationships:
+      - name: signals
+        peer: IntentObservabilitySignal
+        identifier: observabilitycontract__signals
+        optional: true
+        cardinality: many
+        kind: Component
+
+  - name: ReliabilityContract
+    namespace: Intent
+    description: "Reliability realm: redundancy and failure-domain requirements."
+    label: "Reliability Contract"
+    icon: "mdi:backup-restore"
+    inherit_from:
+      - IntentContract
+      - CoreArtifactTarget
+    include_in_menu: false
+    attributes:
+      - name: min_pe_attachments
+        kind: Number
+        optional: true
+        order_weight: 2000
+      - name: require_distinct_failure_domains
+        kind: Boolean
+        optional: true
+        order_weight: 2100
+
+  # --------------------------------------------------- contract child nodes
+  - name: SecurityRule
+    namespace: Intent
+    description: "One rule inside a security contract."
+    label: "Security Rule"
+    icon: "mdi:filter"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    order_by:
+      - index__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: index
+        kind: Number
+        order_weight: 1100
+      - name: action
+        kind: Dropdown
+        order_weight: 1200
+        choices:
+          - name: allow
+            color: "#22c55e"
+          - name: deny
+            color: "#e11d48"
+      - name: protocol
+        kind: Dropdown
+        optional: true
+        order_weight: 1300
+        choices:
+          - name: any
+          - name: tcp
+          - name: udp
+          - name: icmp
+      - name: dst_ports
+        kind: List
+        optional: true
+        order_weight: 1400
+    relationships:
+      - name: contract
+        peer: IntentSecurityContract
+        identifier: securitycontract__rules
+        optional: false
+        cardinality: one
+        kind: Parent
+      - name: src_zone
+        peer: IntentZone
+        identifier: securityrule__src_zone
+        optional: true
+        cardinality: one
+        kind: Attribute
+      - name: dst_prefixes
+        peer: IpamPrefix
+        identifier: securityrule__dst_prefixes
+        optional: true
+        cardinality: many
+        kind: Attribute
+
+  - name: ObservabilitySignal
+    namespace: Intent
+    description: "One signal inside an observability contract: what to measure and when to alert."
+    label: "Observability Signal"
+    icon: "mdi:pulse"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: signal
+        kind: Dropdown
+        order_weight: 1100
+        choices:
+          - name: bgp_session_state
+          - name: bgp_route_count
+          - name: policy_export_violation
+          - name: interface_errors
+          - name: device_reachability
+      - name: direction
+        kind: Dropdown
+        optional: true
+        order_weight: 1200
+        choices:
+          - name: inbound
+          - name: outbound
+      - name: condition
+        kind: Text
+        order_weight: 1300
+      - name: frequency_seconds
+        kind: Number
+        optional: true
+        order_weight: 1400
+      - name: severity
+        kind: Dropdown
+        optional: true
+        order_weight: 1500
+        choices:
+          - name: sev1
+            color: "#e11d48"
+          - name: sev2
+            color: "#f97316"
+          - name: sev3
+            color: "#eab308"
+          - name: sev4
+            color: "#94a3b8"
+    relationships:
+      - name: contract
+        peer: IntentObservabilityContract
+        identifier: observabilitycontract__signals
+        optional: false
+        cardinality: one
+        kind: Parent
+      - name: watches
+        peer: IntentContract
+        identifier: signal__watches
+        description: "The contract this signal keeps honest (usually a routing contract)."
+        optional: true
+        cardinality: one
+        kind: Attribute
+
+  # -------------------------------------------------------- supporting kinds
+  - name: Tenant
+    namespace: Intent
+    description: "Who an intent serves - a customer, a partner or the provider itself."
+    label: "Tenant"
+    icon: "mdi:domain"
+    inherit_from:
+      - CoreArtifactTarget
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: owner
+        kind: Text
+        order_weight: 1200
+      - name: environment
+        kind: Dropdown
+        optional: true
+        order_weight: 1300
+        choices:
+          - name: dev
+          - name: staging
+          - name: prod
+      - name: tenant_community
+        kind: Text
+        optional: true
+        order_weight: 1400
+      - name: ticket
+        kind: Text
+        optional: true
+        order_weight: 1500
+    relationships:
+      - name: vrfs
+        peer: IpamVRF
+        identifier: intenttenant__vrf
+        optional: true
+        cardinality: many
+        kind: Attribute
+      - name: intents
+        peer: IntentIntent
+        identifier: tenant__intents
+        optional: true
+        cardinality: many
+        kind: Generic
+
+  - name: Zone
+    namespace: Intent
+    description: "A named region of the network intents can refer to."
+    label: "Zone"
+    icon: "mdi:map-marker-radius"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: zone_type
+        kind: Dropdown
+        order_weight: 1200
+        choices:
+          - name: core
+          - name: corp
+          - name: transit
+          - name: internet_peering
+          - name: partner
+          - name: management
+
+  - name: Capability
+    namespace: Intent
+    description: "Something a platform can do; observability intents require them."
+    label: "Capability"
+    icon: "mdi:puzzle-check"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: category
+        kind: Dropdown
+        order_weight: 1200
+        choices:
+          - name: telemetry
+          - name: management
+          - name: forwarding
+
+# Platforms declare what they can do; observability invariants verify that
+# what a contract needs to be observed is actually present on the boxes.
+extensions:
+  nodes:
+    - kind: DcimPlatform
+      relationships:
+        - name: capabilities
+          peer: IntentCapability
+          identifier: platform__capability
+          optional: true
+          cardinality: many
+          kind: Attribute
