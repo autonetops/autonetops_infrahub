@@ -57,21 +57,17 @@ topology:
     pe-emea-01:
       kind: arista_ceos
       mgmt-ipv4: 172.20.20.11
-      startup-config: configs/__clabNodeName__.cfg
     pe-emea-02:
       kind: arista_ceos
       mgmt-ipv4: 172.20.20.12
-      startup-config: configs/__clabNodeName__.cfg
     core-rr-01:
       kind: cisco_iol
       mgmt-ipv4: 172.20.20.13
-      startup-config: configs/__clabNodeName__.partial.cfg
     # to move the reflector back to vJunos (needs /dev/kvm), swap the kind
     # above for juniper_vjunosrouter and restore the ge-0/0/N interface
     # names in scripts/bootstrap.py.
     # The SR Linux admin password is set to admin/admin by
     # scripts/deploy_configs.py on push - containerlab 0.77 does not
-    # reliably apply a CLI startup-config for the srl kind, and the config
     # is delivered over `docker exec sr_cli` (not SSH) anyway.
     ce-custc-01:
       kind: nokia_srlinux
