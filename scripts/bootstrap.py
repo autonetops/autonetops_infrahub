@@ -550,6 +550,42 @@ def main():
               "Every device keeps a management interface cabled to the OOB plane")
 
     # ------------------------------------------------------------------
+    # Change windows: WHEN plans may dispatch (read by the orchestrator)
+    # ------------------------------------------------------------------
+    print("==> change windows")
+    routers_named = ["pe-emea-01", "pe-emea-02", "core-rr-01"]
+    upsert(client, "OpsChangeWindow",
+           name="lab-continuous",
+           description="Lab-only always-open window; delete it to watch the "
+                       "orchestrator defer to the real maintenance windows.",
+           window_type="maintenance",
+           days=["monday", "tuesday", "wednesday", "thursday", "friday",
+                 "saturday", "sunday"],
+           start_utc="00:00", duration_minutes=1440,
+           max_blast_radius="moderate")
+    upsert(client, "OpsChangeWindow",
+           name="emea-standard-maintenance",
+           description="Weekly EMEA core/edge maintenance",
+           window_type="maintenance",
+           days=["tuesday", "thursday"],
+           start_utc="21:00", duration_minutes=240,
+           max_blast_radius="high",
+           devices=[devices[n].id for n in routers_named])
+    upsert(client, "OpsChangeWindow",
+           name="weekday-low-risk",
+           description="Low-blast-radius changes may ride business hours",
+           window_type="maintenance",
+           days=["monday", "tuesday", "wednesday", "thursday", "friday"],
+           start_utc="08:00", duration_minutes=600,
+           max_blast_radius="low")
+    upsert(client, "OpsChangeWindow",
+           name="q3-core-audit-freeze",
+           description="Core untouchable during the Q3 audit capture",
+           window_type="freeze",
+           starts_at="2026-07-20T00:00:00Z", ends_at="2026-07-27T00:00:00Z",
+           devices=[devices["core-rr-01"].id])
+
+    # ------------------------------------------------------------------
     # Groups: targeted checks + artifact targets
     # ------------------------------------------------------------------
     print("==> groups")

@@ -1,0 +1,104 @@
+# ---------------------------------------------------------------------------
+# Operations model - WHEN intent may reach the network.
+#
+# The intent model (schemas/intent.yml) says WHAT must hold; contracts say
+# HOW it materializes. Change windows say WHEN a Plan is allowed to touch
+# production. The orchestrator (autonetops_ibn) reads these at plan time and
+# again at dispatch time - windows are data under review in the SoT, exactly
+# like the intent itself, never a YAML file on some operator's laptop.
+#
+# Two shapes share one kind:
+#   recurring  - days + start_utc + duration_minutes (weekly maintenance)
+#   absolute   - starts_at + ends_at (one-off windows and freezes)
+# A window with absolute bounds ignores the recurring fields.
+#
+# window_type:
+#   maintenance - deployment allowed inside; max_blast_radius caps how big
+#                 a plan may ride this window
+#   freeze      - deployment of matching devices is BLOCKED inside, whatever
+#                 other windows say; only an emergency dispatch overrides it
+#
+# An empty device scope means "applies to every device".
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+nodes:
+  - name: ChangeWindow
+    namespace: Ops
+    description: "When plans may (or must not) be dispatched to the network."
+    label: "Change Window"
+    icon: "mdi:calendar-clock"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: window_type
+        kind: Dropdown
+        default_value: "maintenance"
+        order_weight: 1200
+        choices:
+          - name: maintenance
+            color: "#22c55e"
+            description: "Deployment allowed inside this window"
+          - name: freeze
+            color: "#e11d48"
+            description: "Deployment blocked inside this window"
+      - name: days
+        kind: List
+        optional: true
+        description: "Recurring weekdays (monday..sunday); ignored when absolute bounds are set"
+        order_weight: 1300
+      - name: start_utc
+        kind: Text
+        optional: true
+        regex: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        description: "Recurring daily start, HH:MM UTC"
+        order_weight: 1400
+      - name: duration_minutes
+        kind: Number
+        optional: true
+        description: "Recurring window length in minutes"
+        order_weight: 1500
+      - name: starts_at
+        kind: DateTime
+        optional: true
+        description: "Absolute one-off start (freezes, ad-hoc windows)"
+        order_weight: 1600
+      - name: ends_at
+        kind: DateTime
+        optional: true
+        description: "Absolute one-off end"
+        order_weight: 1700
+      - name: max_blast_radius
+        kind: Dropdown
+        default_value: "moderate"
+        order_weight: 1800
+        description: "Largest blast-radius class a plan may have to ride this window"
+        choices:
+          - name: low
+            color: "#22c55e"
+          - name: moderate
+            color: "#eab308"
+          - name: high
+            color: "#e11d48"
+    relationships:
+      - name: devices
+        peer: DcimGenericDevice
+        identifier: changewindow__devices
+        optional: true
+        cardinality: many
+        kind: Attribute
+        description: "Scope; empty means every device"

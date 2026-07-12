@@ -41,12 +41,17 @@ clab/               lab topology (mirrors the SoT 1:1, incl. the OOB plane)
 monitoring/         static telegraf/Prometheus/Grafana plumbing; compiled
                     fragments land in telegraf.d/, rules/, dashboards/
 docs/workshop.md    the full walkthrough (phases 0-7 + drift exercises)
+docs/workshop2.md   day-2 operations: change the SoT on a branch, let the
+                    orchestrator plan/schedule/dispatch it (change windows
+                    live in the SoT: schemas/operations.yml)
 ```
 
 Delivery beyond the hand-run scripts lives in the companion
 [`autonetops_ibn`](../autonetops_ibn) project: planner → staged Plan →
-`ibnctl` → executor drivers (snapshot / dry_run / apply / rollback, with
-evidence per verb).
+`ibn-orchestrate` (timeline vs SoT change windows, dispatch decision,
+validator-gated stages) → executor drivers (snapshot / dry_run / apply /
+rollback, with evidence per verb). `ibnctl` remains the manual,
+break-glass runner. See [docs/workshop2.md](docs/workshop2.md).
 
 ## Quick start
 

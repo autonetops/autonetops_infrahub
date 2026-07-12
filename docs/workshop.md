@@ -334,3 +334,10 @@ of this layer, exercised against this very lab:
 - gNMI field naming varies by OS version; the starlark normalizer in
   `monitoring/telegraf/telegraf.conf` covers the common cases and is the one
   place to extend.
+
+## Next: workshop 2
+
+Day-2 operations live in [workshop2.md](workshop2.md): change the SoT on a
+branch (interfaces, routing policy, advertisements), and let the
+orchestrator render, diff, plan, schedule against SoT change windows, and
+dispatch through validator-gated canary stages.
