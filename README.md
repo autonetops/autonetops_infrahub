@@ -41,9 +41,12 @@ clab/               lab topology (mirrors the SoT 1:1, incl. the OOB plane)
 monitoring/         static telegraf/Prometheus/Grafana plumbing; compiled
                     fragments land in telegraf.d/, rules/, dashboards/
 docs/workshop.md    the full walkthrough (phases 0-7 + drift exercises)
-docs/workshop2.md   day-2 operations: change the SoT on a branch, let the
+docs/workshop2.md   IBN theory & terminology (realm/intent/policy/contract/
+                    invariant/expectation, the control loop, design laws),
+                    day-2 operations: change the SoT on a branch, let the
                     orchestrator plan/schedule/dispatch it (change windows
-                    live in the SoT: schemas/operations.yml)
+                    live in the SoT: schemas/operations.yml), and the staged
+                    adoption blueprint for automation + AI at scale
 ```
 
 Delivery beyond the hand-run scripts lives in the companion
