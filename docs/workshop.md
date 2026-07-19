@@ -337,7 +337,12 @@ of this layer, exercised against this very lab:
 
 ## Next: workshop 2
 
-Day-2 operations live in [workshop2.md](workshop2.md): change the SoT on a
-branch (interfaces, routing policy, advertisements), and let the
-orchestrator render, diff, plan, schedule against SoT change windows, and
-dispatch through validator-gated canary stages.
+[workshop2.md](workshop2.md) finishes the picture in three parts: the
+theory and precise terminology of intent-based networking (realms,
+intents, policies, contracts, invariants, expectations — and how they
+relate, in terms that fit most networks); the day-2 operation — change
+the SoT on a branch (interfaces, routing policy, advertisements) and let
+the orchestrator render, diff, plan, schedule against SoT change windows,
+and dispatch through validator-gated canary stages; and the staged
+adoption blueprint for bringing a real network under intent management
+with automation and AI at scale.
