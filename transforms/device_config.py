@@ -22,6 +22,7 @@ one-field edit rather than a rewrite.
 """
 
 import ipaddress
+import re
 
 from infrahub_sdk.transforms import InfrahubTransform
 
@@ -102,17 +103,25 @@ def parse_device(data):
     }
 
 
-def _contract_policy(node):
-    """A contract's policy context: (invariant types, tenant node).
+def _invariant_type(typename):
+    """The invariant's kind IS its type (ADR-0017 D3):
+    IntentNoLeakInvariant -> no_leak."""
+    stem = typename.removeprefix("Intent").removesuffix("Invariant")
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", stem).lower()
 
-    The intent hierarchy hangs tenants and invariants off the policy:
-    contract -> policy -> intent -> tenant and contract -> policy -> invariants.
+
+def _contract_intent(node):
+    """A contract's intent context: (invariant types, tenant node).
+
+    Contracts hang straight off their intent; the invariants that
+    guarantee it are referenced on the same node:
+    contract -> intent -> tenant and contract -> intent -> invariants.
     """
-    policy = _node(node.get("policy")) or {}
-    intent = _node(policy.get("intent")) or {}
+    intent = _node(node.get("intent")) or {}
     tenant = _node(intent.get("tenant"))
     invariants = [
-        _v(i["invariant_type"]) for i in _edges(policy.get("invariants"))
+        _invariant_type(i["__typename"])
+        for i in _edges(intent.get("invariants"))
     ]
     return invariants, tenant
 
@@ -120,7 +129,7 @@ def _contract_policy(node):
 def parse_contracts(data):
     contracts = []
     for node in _edges(data["IntentRoutingContract"]):
-        invariants, tenant = _contract_policy(node)
+        invariants, tenant = _contract_intent(node)
         vrf = None
         if tenant:
             vrfs = _edges(tenant.get("vrfs"))
@@ -201,7 +210,7 @@ def parse_security(data, device_role):
                 ],
             })
         rules.sort(key=lambda r: r["index"] or 0)
-        _, tenant = _contract_policy(node)
+        _, tenant = _contract_intent(node)
         policies.append({
             "name": _v(node["name"]),
             "ddos_profile": _v(node["ddos_profile"]),

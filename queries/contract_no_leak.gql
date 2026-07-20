@@ -17,7 +17,7 @@ query contract_no_leak($contract: String!) {
             }
           }
         }
-        policy {
+        intent {
           node {
             name {
               value
@@ -25,26 +25,17 @@ query contract_no_leak($contract: String!) {
             invariants {
               edges {
                 node {
-                  invariant_type {
-                    value
-                  }
+                  __typename
                   severity {
                     value
                   }
                 }
               }
             }
-            intent {
+            tenant {
               node {
                 name {
                   value
-                }
-                tenant {
-                  node {
-                    name {
-                      value
-                    }
-                  }
                 }
               }
             }

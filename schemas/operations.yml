@@ -1,11 +1,11 @@
 # ---------------------------------------------------------------------------
 # Operations model - WHEN intent may reach the network.
 #
-# The intent model (schemas/intent.yml) says WHAT must hold; contracts say
-# HOW it materializes. Change windows say WHEN a Plan is allowed to touch
-# production. The orchestrator (autonetops_ibn) reads these at plan time and
-# again at dispatch time - windows are data under review in the SoT, exactly
-# like the intent itself, never a YAML file on some operator's laptop.
+# A change window is an OPERATIONAL POLICY (ADR-0017 D8 / ledger item 7):
+# OpsChangeWindow inherits IntentPolicy (subject: operational), so
+# "what rules are in force" is one query across network and operational
+# policies alike. name/description/subject/scope/enabled come from the
+# generic; the window shape below is what this kind adds.
 #
 # Two shapes share one kind:
 #   recurring  - days + start_utc + duration_minutes (weekly maintenance)
@@ -19,36 +19,27 @@
 #                 other windows say; only an emergency dispatch overrides it
 #
 # An empty device scope means "applies to every device".
+#
+# Load AFTER (or together with) schemas/intent.yml - the IntentPolicy
+# generic must exist first:
+#   infrahubctl schema load schemas/intent.yml schemas/operations.yml
 # ---------------------------------------------------------------------------
 version: "1.0"
 
 nodes:
   - name: ChangeWindow
     namespace: Ops
-    description: "When plans may (or must not) be dispatched to the network."
+    description: "When plans may (or must not) be dispatched. An operational policy."
     label: "Change Window"
     icon: "mdi:calendar-clock"
-    display_labels:
-      - name__value
-    human_friendly_id:
-      - name__value
-    order_by:
-      - name__value
-    uniqueness_constraints:
-      - [name__value]
+    include_in_menu: false  # listed by menus/menu-intent.yml (under Policies)
+    inherit_from:
+      - IntentPolicy
     attributes:
-      - name: name
-        kind: Text
-        unique: true
-        order_weight: 1000
-      - name: description
-        kind: Text
-        optional: true
-        order_weight: 1100
       - name: window_type
         kind: Dropdown
         default_value: "maintenance"
-        order_weight: 1200
+        order_weight: 2000
         choices:
           - name: maintenance
             color: "#22c55e"
@@ -60,32 +51,32 @@ nodes:
         kind: List
         optional: true
         description: "Recurring weekdays (monday..sunday); ignored when absolute bounds are set"
-        order_weight: 1300
+        order_weight: 2100
       - name: start_utc
         kind: Text
         optional: true
         regex: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
         description: "Recurring daily start, HH:MM UTC"
-        order_weight: 1400
+        order_weight: 2200
       - name: duration_minutes
         kind: Number
         optional: true
         description: "Recurring window length in minutes"
-        order_weight: 1500
+        order_weight: 2300
       - name: starts_at
         kind: DateTime
         optional: true
         description: "Absolute one-off start (freezes, ad-hoc windows)"
-        order_weight: 1600
+        order_weight: 2400
       - name: ends_at
         kind: DateTime
         optional: true
         description: "Absolute one-off end"
-        order_weight: 1700
+        order_weight: 2500
       - name: max_blast_radius
         kind: Dropdown
         default_value: "moderate"
-        order_weight: 1800
+        order_weight: 2600
         description: "Largest blast-radius class a plan may have to ride this window"
         choices:
           - name: low

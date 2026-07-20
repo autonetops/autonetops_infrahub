@@ -5,22 +5,15 @@ query prometheus_rules($contract: String!) {
         name {
           value
         }
-        policy {
+        intent {
           node {
             name {
               value
             }
-            intent {
+            tenant {
               node {
                 name {
                   value
-                }
-                tenant {
-                  node {
-                    name {
-                      value
-                    }
-                  }
                 }
               }
             }
@@ -59,16 +52,12 @@ query prometheus_rules($contract: String!) {
                     max_prefixes_ipv6 {
                       value
                     }
-                    policy {
+                    intent {
                       node {
-                        intent {
+                        tenant {
                           node {
-                            tenant {
-                              node {
-                                name {
-                                  value
-                                }
-                              }
+                            name {
+                              value
                             }
                           }
                         }

@@ -10,35 +10,35 @@ telegraf → Prometheus → Grafana prove it.
 
 ## The intent model
 
-Intents live in **realms** — domains of concern: `routing`, `reachability`,
-`security`, `observability`, `reliability` (seeded and populated), plus
-`compliance` and `performance` (seeded, awaiting their first intents). An
-intent is achieved via **policies**, and each policy carries the two things
-that make it enforceable:
+Intents carry a **domain** — a free-form taxonomy tag: `connectivity`,
+`routing`, `security`, `resilience`, `observability` (populated here), plus
+`capacity`, `compliance`, `lifecycle`, `operations` from the shared starter
+set (ADR-0015/0017 in `autonetops_ibn`). An intent is *achieved by* its
+contracts, *governed by* policies and *guaranteed by* invariants:
 
 ```
-IntentRealm                 the domain of concern
-  └─ IntentIntent           the declared outcome (tenant, priority, statement)
-       └─ IntentPolicy      how it is realized (enforcement: design_time/runtime/full)
-            ├─ contracts    IntentContract subtypes - typed, machine-renderable
-            │               promises: RoutingContract, ReachabilityContract,
-            │               SecurityContract, ObservabilityContract,
-            │               ReliabilityContract
-            └─ invariants   IntentInvariant - conditions that must always hold;
-                            compiled into merge-gating checks (severity:
-                            blocking | warning)
+IntentDefinition            the declared outcome (domain, tenant, priority)
+  ├─ contracts (owned)      IntentContract subtypes - typed, machine-renderable
+  │                         promises: RoutingContract, ReachabilityContract,
+  │                         SecurityContract, ObservabilityContract,
+  │                         ReliabilityContract
+  ├─ policies (referenced)  IntentPolicy - standing rules, network + operational
+  │                         (change windows inherit this kind)
+  └─ invariants (referenced) typed IntentInvariant kinds - conditions that must
+                            always hold; projected into merge-gating checks
+                            (severity: warning | major | critical)
 ```
 
 Contracts are what the compilers consume (configs, expectations, collectors,
-alerts, dashboards); invariants are what the checks enforce. Supporting
-vocabulary — `IntentTenant`, `IntentZone`, `IntentCapability` — anchors the
-who/where/what-can-the-box-do.
+alerts, dashboards); invariant projections are what the checks enforce.
+Supporting vocabulary — `IntentTenant`, `IntentZone`, `IntentCapability` —
+anchors the who/where/what-can-the-box-do.
 
 ## Architecture recap
 
 ```
  InfraHub (intent SoT)
-   branch -> edit realm/intent/policy/contract -> Proposed Change
+   branch -> edit intent/contract/policy -> Proposed Change
      |            invariants gate the merge: no-leak, prefix-auth, redundancy,
      |                    OOB reachability, observability capability
      v  merge = compile
@@ -78,10 +78,11 @@ definitions.
 
 Browse the schema in the UI. The things to notice:
 
-- **The hierarchy is navigable end to end**: open the `routing` realm →
-  `custc-l3vpn-connectivity` intent → `custc-edge-routing` policy → the
-  `custc-ce-to-pe` contract and its three invariants. Every artifact and
-  every merge gate traces back to a realm through this chain.
+- **The hierarchy is navigable end to end**: open the
+  `custc-l3vpn-connectivity` intent (domain `connectivity`) → the
+  `custc-ce-to-pe` contract it owns, and the three invariants that
+  guarantee it. Every artifact and every merge gate traces back to an
+  intent through this chain.
 - **Zones, capabilities, roles, severities are controlled vocabularies.**
   There is no field where "internet-peers " (trailing space) can silently
   fracture the model.
@@ -89,9 +90,9 @@ Browse the schema in the UI. The things to notice:
   policy-options, no vendor block. Try to find a place to put an SR Linux knob
   — there isn't one. That's principle A.
 - **Invariants are declared objects, not tribal rules.** `custc-no-leak`
-  (blocking), `custc-prefix-authorization` (blocking),
-  `custc-reachability-preserved` (warning) — each names its type and severity
-  on the policy it guards, and each maps onto a check.
+  (critical), `custc-prefix-authorization` (major),
+  `custc-reachability-preserved` (warning) — each is a typed kind
+  referencing the intents it guarantees, and each maps onto a check.
 - **`DcimPlatform.capabilities`** is where "this Cisco has no gNMI" lives as
   data. Everything downstream branches on it.
 
@@ -104,8 +105,8 @@ python scripts/bootstrap.py
 
 This loads: 7 devices (2 PEs, 1 RR, 2 CEs, 1 internet peer, 1 OOB switch),
 full cabling including the OOB plane, the CUSTC-PROD VRF and prefixes, and
-the intent hierarchy — 7 realms, 8 intents, 8 policies, 8 contracts across
-five realms, 8 invariants and 4 observability signals — plus the groups the
+the intent layer — 8 intents across five domains, 8 contracts, 8 typed
+invariants, a network policy and 4 observability signals — plus the groups the
 pipeline targets (`network_devices`, `monitored_devices`, `oob_switches`,
 `routing_contracts`, `observability_contracts`, `intent_tenants`).
 
@@ -338,9 +339,9 @@ of this layer, exercised against this very lab:
 ## Next: workshop 2
 
 [workshop2.md](workshop2.md) finishes the picture in three parts: the
-theory and precise terminology of intent-based networking (realms,
-intents, policies, contracts, invariants, expectations — and how they
-relate, in terms that fit most networks); the day-2 operation — change
+theory and precise terminology of intent-based networking (intents,
+contracts, objectives, policies, invariants, waivers, expectations — and
+how they relate, in terms that fit most networks); the day-2 operation — change
 the SoT on a branch (interfaces, routing policy, advertisements) and let
 the orchestrator render, diff, plan, schedule against SoT change windows,
 and dispatch through validator-gated canary stages; and the staged

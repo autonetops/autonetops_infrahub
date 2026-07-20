@@ -11,16 +11,12 @@ query tenant_redundancy {
         require_distinct_failure_domains {
           value
         }
-        policy {
+        intent {
           node {
-            intent {
+            tenant {
               node {
-                tenant {
-                  node {
-                    name {
-                      value
-                    }
-                  }
+                name {
+                  value
                 }
               }
             }
@@ -38,16 +34,12 @@ query tenant_redundancy {
         require_redundancy {
           value
         }
-        policy {
+        intent {
           node {
-            intent {
+            tenant {
               node {
-                tenant {
-                  node {
-                    name {
-                      value
-                    }
-                  }
+                name {
+                  value
                 }
               }
             }
@@ -62,16 +54,12 @@ query tenant_redundancy {
         name {
           value
         }
-        policy {
+        intent {
           node {
-            intent {
+            tenant {
               node {
-                tenant {
-                  node {
-                    name {
-                      value
-                    }
-                  }
+                name {
+                  value
                 }
               }
             }

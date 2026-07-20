@@ -1,0 +1,112 @@
+# yaml-language-server:
+#   $schema=https://schema.infrahub.app/infrahub/menu/latest.json
+#
+# Sidebar navigation for the intent model (ADR-0015/0017):
+#
+#   Intent
+#     ├── Intents            (IntentDefinition - the WHY)
+#     ├── Contracts          (IntentContract generic - ACHIEVED BY;
+#     │                       shows every subtype: routing, reachability,
+#     │                       security, observability, reliability)
+#     ├── Policies           (IntentPolicy generic - GOVERNED BY;
+#     │    └── Change Windows (OpsChangeWindow - the operational policy)
+#     ├── Invariants         (IntentInvariant generic - GUARANTEED BY;
+#     │                       shows every typed kind: no-leak, redundancy, ...)
+#     ├── Waivers            (IntentWaiver - TEMPERED BY)
+#     └── Taxonomy
+#           ├── Tenants      (WHO)
+#           ├── Zones        (WHERE)
+#           └── Capabilities (WITH WHAT)
+#
+# Register this file in .infrahub.yml (plural key!):
+#
+#   menus:
+#     - menus/menu-intent.yml
+#
+# To prevent duplicate sidebar entries, every schema node referenced
+# below carries include_in_menu: false in schemas/intent.yml and
+# schemas/operations.yml (the auto-menu and this menu are merged
+# additively - neither side dedupes).
+---
+apiVersion: infrahub.app/v1
+kind: Menu
+spec:
+  data:
+    - namespace: Intent
+      name: IntentMenu
+      label: "Intent"
+      icon: "mdi:bullseye-arrow"
+      # No kind: group header, mirrors the model's composition
+      children:
+        data:
+          - namespace: Intent
+            name: Definitions
+            label: "Intents"
+            kind: IntentDefinition
+            icon: "mdi:bullseye-arrow"
+            order_weight: 1000
+
+          # ---------------- ACHIEVED BY (owned, cascade) ----------------
+          - namespace: Intent
+            name: Contracts
+            label: "Contracts"
+            kind: IntentContract
+            icon: "mdi:file-sign"
+            order_weight: 2000
+
+          # --------------- GOVERNED BY (referenced, scoped) -------------
+          - namespace: Intent
+            name: Policies
+            label: "Policies"
+            kind: IntentPolicy
+            icon: "mdi:gavel"
+            order_weight: 3000
+            children:
+              data:
+                - namespace: Intent
+                  name: ChangeWindows
+                  label: "Change Windows"
+                  kind: OpsChangeWindow
+                  icon: "mdi:calendar-clock"
+
+          # -------------- GUARANTEED BY (referenced, typed) -------------
+          - namespace: Intent
+            name: Invariants
+            label: "Invariants"
+            kind: IntentInvariant
+            icon: "mdi:shield-lock"
+            order_weight: 4000
+
+          # -------------- TEMPERED BY (time-boxed, expiring) ------------
+          - namespace: Intent
+            name: Waivers
+            label: "Waivers"
+            kind: IntentWaiver
+            icon: "mdi:clock-alert-outline"
+            order_weight: 5000
+
+          # ------------ supporting vocabulary (WHO/WHERE/WITH WHAT) -----
+          - namespace: Intent
+            name: TaxonomyMenu
+            label: "Taxonomy"
+            icon: "mdi:tag-multiple"
+            order_weight: 6000
+            children:
+              data:
+                - namespace: Intent
+                  name: Tenants
+                  label: "Tenants"
+                  kind: IntentTenant
+                  icon: "mdi:domain"
+
+                - namespace: Intent
+                  name: Zones
+                  label: "Zones"
+                  kind: IntentZone
+                  icon: "mdi:map-marker-radius"
+
+                - namespace: Intent
+                  name: Capabilities
+                  label: "Capabilities"
+                  kind: IntentCapability
+                  icon: "mdi:puzzle-check"

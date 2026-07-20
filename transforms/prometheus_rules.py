@@ -57,8 +57,7 @@ def _parse_loss(condition):
 
 
 def _tenant_of(contract_node):
-    policy = _node(contract_node.get("policy")) or {}
-    intent = _node(policy.get("intent")) or {}
+    intent = _node(contract_node.get("intent")) or {}
     return _node(intent.get("tenant"))
 
 

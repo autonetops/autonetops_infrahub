@@ -63,16 +63,12 @@ query telemetry_collector($device: String!) {
             name {
               value
             }
-            policy {
+            intent {
               node {
-                intent {
+                tenant {
                   node {
-                    tenant {
-                      node {
-                        name {
-                          value
-                        }
-                      }
+                    name {
+                      value
                     }
                   }
                 }

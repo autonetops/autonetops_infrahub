@@ -3,13 +3,14 @@
 
 Loads the full customer-c scenario: taxonomy (zones, capabilities),
 inventory (devices, interfaces, cabling - including the OOB management
-plane), IPAM, and the intent hierarchy
+plane), IPAM, and the aligned intent model (ADR-0015/0017)
 
-    realm -> intent -> policy -> contracts + invariants
+    intent -- achieved by contracts (owned, direct parent), governed by
+    policies and guaranteed by invariants (referenced, typed kinds)
 
-across the routing, reachability, security, observability and reliability
-realms (compliance and performance are seeded as empty realms), plus the
-groups that drive targeted checks and artifact definitions.
+across the connectivity, routing, security, resilience and observability
+domains, plus change windows as operational policies and the groups that
+drive targeted checks and artifact definitions.
 
 Prerequisites (run in this order):
     infrahubctl schema load schema-library/base
@@ -17,8 +18,12 @@ Prerequisites (run in this order):
         schema-library/extensions/cable \
         schema-library/extensions/location_minimal \
         schema-library/extensions/routing_bgp
-    infrahubctl schema load schemas/intent.yml
+    infrahubctl schema load schemas/intent.yml schemas/operations.yml
     python scripts/bootstrap.py
+
+Migrating a pre-alignment server: run scripts/migrate_to_aligned_model.py
+and load the schemas/migrations/retire_*.yml files first (sequence in
+retire_1_detach.yml's header).
 
 Environment: INFRAHUB_ADDRESS (default http://localhost:8000) and
 INFRAHUB_API_TOKEN.
@@ -285,23 +290,11 @@ def main():
             print(f"    cable {end_a} <-> {end_b} already present, skipping")
 
     # ------------------------------------------------------------------
-    # Intent layer: realm -> intent -> policy -> contracts + invariants
+    # Intent layer (ADR-0015/0017): an intent is ACHIEVED by its contracts
+    # (owned), GOVERNED by policies and GUARANTEED by invariants (both
+    # referenced, attach by scope). `domain` is an attribute on the
+    # intent, never a node kind - the taxonomy grows without migrations.
     # ------------------------------------------------------------------
-    print("==> realms")
-    realm_defs = [
-        ("routing", "How reachability information is exchanged: BGP relationships, announcements, path preference."),
-        ("reachability", "Who must reach what, and how fast the network must converge back to it."),
-        ("security", "Segmentation, filtering and hardening posture."),
-        ("observability", "What must be measured, how fresh the evidence must be, what pages."),
-        ("reliability", "Redundancy and failure-domain requirements."),
-        ("compliance", "Golden-config, software lifecycle and audit conformance."),
-        ("performance", "QoS, latency budgets and capacity headroom."),
-    ]
-    realms = {
-        name: upsert(client, "IntentRealm", name=name, description=desc)
-        for name, desc in realm_defs
-    }
-
     print("==> tenant")
     tenant = upsert(
         client, "IntentTenant",
@@ -314,36 +307,36 @@ def main():
         vrfs=[vrf.id],
     )
 
-    def intent(name, realm, statement, **data):
-        return upsert(client, "IntentIntent", name=name,
-                      realm=realms[realm].id, statement=statement, **data)
+    def intent(name, domain, description, **data):
+        return upsert(client, "IntentDefinition", name=name, domain=domain,
+                      description=description, **data)
 
-    def policy(name, parent, description, enforcement="full"):
-        return upsert(client, "IntentPolicy", name=name, intent=parent.id,
-                      description=description, enforcement=enforcement)
+    def invariant(kind, name, guards, description, severity="major"):
+        """A typed invariant, referenced (never owned) by the intents it
+        guarantees. guards=None means fleet-wide (scope=global)."""
+        data = {"name": name, "description": description,
+                "severity": severity}
+        if guards:
+            data.update(scope="intent", intents=[i.id for i in guards])
+        else:
+            data.update(scope="global")
+        return upsert(client, kind, **data)
 
-    def invariant(name, parent, invariant_type, description, severity="blocking"):
-        return upsert(client, "IntentInvariant", name=name, policy=parent.id,
-                      invariant_type=invariant_type, severity=severity,
-                      description=description)
-
-    # ---------------------------------------------------- realm: routing
-    print("==> routing realm")
+    # ---------------------------------------------- domain: connectivity
+    print("==> connectivity domain")
     i_custc_vpn = intent(
-        "custc-l3vpn-connectivity", "routing",
+        "custc-l3vpn-connectivity", "connectivity",
         "Customer C sites exchange routes privately over our L3VPN; only "
         "authorized prefixes are announced and they never reach a public peer.",
         tenant=tenant.id, priority="high", owner="customer-success-emea",
         ticket="CHG-2025-1209",
     )
-    p_custc_edge = policy(
-        "custc-edge-routing", i_custc_vpn,
-        "eBGP handoff from customer C CEs into CUSTC-PROD on redundant PEs.")
     contract_ce = upsert(
         client, "IntentRoutingContract",
         name="custc-ce-to-pe",
         description="Customer C CE handoff into CUSTC-PROD",
-        policy=p_custc_edge.id,
+        consumer="customer-c",
+        intent=i_custc_vpn.id,
         role="customer_edge",
         peer_asn=65123,
         afi_safis=["ipv4-unicast", "ipv6-unicast"],
@@ -362,27 +355,30 @@ def main():
         ],
         export_deny_zones=[zones["internet-peers"].id, zones["transit"].id],
     )
-    invariant("custc-no-leak", p_custc_edge, "no_leak",
-              "Customer C routes must not be exported to any public peer or transit")
-    invariant("custc-no-default", p_custc_edge, "no_default_origination",
+    invariant("IntentNoLeakInvariant", "custc-no-leak", [i_custc_vpn],
+              "Customer C routes must not be exported to any public peer or transit",
+              severity="critical")
+    invariant("IntentNoDefaultOriginationInvariant", "custc-no-default",
+              [i_custc_vpn],
               "Do not originate default into the CE unless explicitly enabled")
-    invariant("custc-prefix-authorization", p_custc_edge, "prefix_authorization",
+    invariant("IntentPrefixAuthorizationInvariant", "custc-prefix-authorization",
+              [i_custc_vpn],
               "Only prefixes owned by customer C's VRFs may be allowed on the contract")
 
+    # --------------------------------------------------- domain: routing
+    print("==> routing domain")
     i_core = intent(
         "provider-core-transport", "routing",
         "Every PE learns every VPN route through reflected iBGP - no full mesh "
         "to maintain, one reflector to reason about.",
         priority="critical", owner="backbone-engineering",
     )
-    p_core = policy(
-        "core-route-reflection", i_core,
-        "vpn-ipv4 route reflection: PEs are clients of core-rr-01.")
     contract_core = upsert(
         client, "IntentRoutingContract",
         name="ibgp-core-rr",
         description="vpn-ipv4 route reflection - PEs are clients of core-rr-01",
-        policy=p_core.id,
+        consumer="backbone-engineering",
+        intent=i_core.id,
         role="core",
         peer_asn=65010,
         afi_safis=["vpn-ipv4"],
@@ -392,19 +388,17 @@ def main():
     )
 
     i_peering = intent(
-        "provider-internet-peering", "routing",
+        "provider-internet-peering", "connectivity",
         "AS65010 exchanges internet routes with InetPeerCo in EMEA; nothing "
         "tenant-owned ever appears at the exchange.",
         priority="high", owner="peering-team",
     )
-    p_peering = policy(
-        "emea-peering", i_peering,
-        "Public eBGP session with InetPeerCo on pe-emea-02.")
     contract_inet = upsert(
         client, "IntentRoutingContract",
         name="inet-peering-emea",
         description="Public peering with InetPeerCo - customer-c must NEVER appear here",
-        policy=p_peering.id,
+        consumer="InetPeerCo",
+        intent=i_peering.id,
         role="internet_peering",
         peer_asn=64999,
         afi_safis=["ipv4-unicast"],
@@ -415,47 +409,46 @@ def main():
         allowed_prefixes=[prefixes["198.51.100.0/24"].id],
         export_tenants=[],  # empty on purpose: nothing tenant-owned goes out
     )
-    invariant("inet-no-reorigination", p_peering, "no_reorigination",
+    invariant("IntentNoReoriginationInvariant", "inet-no-reorigination",
+              [i_peering],
               "Peer routes keep their original AS path - we never re-originate")
 
-    # ------------------------------------------------ realm: reachability
-    print("==> reachability realm")
+    # reachability is not a domain (ADR-0017 D2): "corp reaches the apps"
+    # is an objective of the same connectivity promise, so this intent
+    # lives in the connectivity domain alongside the L3VPN it rides.
     i_reach = intent(
-        "custc-apps-reachable", "reachability",
+        "custc-apps-reachable", "connectivity",
         "Customer C application prefixes stay reachable from EMEA corp and "
         "recover within 30 seconds of any single failure.",
         tenant=tenant.id, priority="high", owner="customer-success-emea",
     )
-    p_reach = policy(
-        "custc-reachability", i_reach,
-        "Corp-EMEA reaches the customer C application ranges via the L3VPN.")
     upsert(
         client, "IntentReachabilityContract",
         name="custc-apps-reachable-from-emea-corp",
-        policy=p_reach.id,
+        consumer="customer-c",
+        intent=i_reach.id,
         from_zone=zones["corp-emea"].id,
         to_prefixes=[prefixes["10.84.0.0/16"].id, prefixes["2001:db8:84::/48"].id],
         require_redundancy=True,
         max_convergence_seconds=30,
     )
-    invariant("custc-reachability-preserved", p_reach, "reachability_preserved",
+    invariant("IntentReachabilityPreservedInvariant",
+              "custc-reachability-preserved", [i_reach],
               "A change may not remove the last redundant path to these prefixes",
               severity="warning")
 
-    # ---------------------------------------------------- realm: security
-    print("==> security realm")
+    # --------------------------------------------------- domain: security
+    print("==> security domain")
     i_sec = intent(
         "custc-perimeter-protection", "security",
         "Only sanctioned traffic enters customer C's VPN at the provider edge.",
         tenant=tenant.id, priority="high", owner="secops-emea",
     )
-    p_sec = policy(
-        "custc-inbound-protect", i_sec,
-        "Inbound filtering and DDoS posture on every customer-facing PE port.")
     contract_sec = upsert(
         client, "IntentSecurityContract",
         name="custc-inbound-protect",
-        policy=p_sec.id,
+        consumer="customer-c",
+        intent=i_sec.id,
         ddos_profile="standard_l3vpn",
         attach_device_role="pe",
         attach_interface_role="cust",
@@ -469,45 +462,39 @@ def main():
            src_zone=zones["internet-peers"].id,
            dst_prefixes=[prefixes["10.84.0.0/16"].id])
 
-    # ------------------------------------------------- realm: reliability
-    print("==> reliability realm")
+    # ------------------------------------------------- domain: resilience
+    print("==> resilience domain")
     i_rel = intent(
-        "custc-resilience", "reliability",
+        "custc-resilience", "resilience",
         "Customer C survives the loss of any single PE or POP without losing "
         "the VPN service.",
         tenant=tenant.id, priority="high", owner="customer-success-emea",
     )
-    p_rel = policy(
-        "custc-redundancy", i_rel,
-        "Dual-homed CEs across distinct failure domains.",
-        enforcement="design_time")
     upsert(
         client, "IntentReliabilityContract",
         name="custc-reliability",
-        policy=p_rel.id,
+        consumer="customer-c",
+        intent=i_rel.id,
         min_pe_attachments=2,
         require_distinct_failure_domains=True,
     )
-    invariant("custc-redundancy-floor", p_rel, "redundancy",
+    invariant("IntentRedundancyInvariant", "custc-redundancy-floor", [i_rel],
               "At least two PE attachments in distinct failure domains at all times")
 
-    # ----------------------------------------------- realm: observability
-    print("==> observability realm")
+    # ---------------------------------------------- domain: observability
+    print("==> observability domain")
     i_assure = intent(
         "custc-service-assurance", "observability",
         "Customer C's service health is continuously evidenced: session state, "
         "route counts and export violations page before the customer notices.",
         tenant=tenant.id, priority="high", owner="noc-emea",
     )
-    p_assure = policy(
-        "custc-telemetry", i_assure,
-        "Collect and alert on the signals that prove the routing contracts hold.",
-        enforcement="runtime")
     contract_obs_custc = upsert(
         client, "IntentObservabilityContract",
         name="custc-service-signals",
         description="Signals that keep customer C's routing contracts honest",
-        policy=p_assure.id,
+        consumer="noc-emea",
+        intent=i_assure.id,
     )
     upsert(client, "IntentObservabilitySignal",
            name="custc-bgp-session-state", signal="bgp_session_state",
@@ -523,7 +510,8 @@ def main():
            direction="outbound", frequency_seconds=30, severity="sev1",
            condition="count > 5",
            contract=contract_obs_custc.id, watches=contract_inet.id)
-    invariant("custc-observable", p_assure, "capability_present",
+    invariant("IntentCapabilityPresentInvariant", "custc-observable",
+              [i_assure],
               "Every device a watched contract runs on must expose a telemetry capability")
 
     i_fleet = intent(
@@ -532,25 +520,37 @@ def main():
         "management plane, independent of the forwarding plane.",
         priority="critical", owner="noc-emea",
     )
-    p_fleet = policy(
-        "fleet-oob-monitoring", i_fleet,
-        "Ping every device over OOB; alert on loss.",
-        enforcement="runtime")
     contract_obs_fleet = upsert(
         client, "IntentObservabilityContract",
         name="fleet-baseline",
         description="Fleet-wide management-plane signals",
-        policy=p_fleet.id,
+        consumer="noc-emea",
+        intent=i_fleet.id,
     )
     upsert(client, "IntentObservabilitySignal",
            name="fleet-oob-reachability", signal="device_reachability",
            frequency_seconds=60, severity="sev3", condition="loss > 50%",
            contract=contract_obs_fleet.id)
-    invariant("fleet-oob-cabled", p_fleet, "oob_reachability",
-              "Every device keeps a management interface cabled to the OOB plane")
+    invariant("IntentOobReachabilityInvariant", "fleet-oob-cabled", None,
+              "Every device keeps a management interface cabled to the OOB plane",
+              severity="critical")
 
     # ------------------------------------------------------------------
-    # Change windows: WHEN plans may dispatch (read by the orchestrator)
+    # Policies: standing rules on HOW outcomes may be realized -
+    # referenced by scope, never owned by an intent (ADR-0015).
+    # ------------------------------------------------------------------
+    print("==> policies (rule instruments)")
+    upsert(client, "IntentGenericPolicy",
+           name="ebgp-max-prefix-required",
+           description="Every eBGP session must declare a max-prefix ceiling; "
+                       "a session without one is a rejected change.",
+           subject="network", scope="domain",
+           domains=["connectivity", "routing"],
+           enforcement="merge")
+
+    # ------------------------------------------------------------------
+    # Change windows: operational policies - WHEN plans may dispatch
+    # (read by the orchestrator at plan time and again at dispatch time)
     # ------------------------------------------------------------------
     print("==> change windows")
     routers_named = ["pe-emea-01", "pe-emea-02", "core-rr-01"]
@@ -558,6 +558,7 @@ def main():
            name="lab-continuous",
            description="Lab-only always-open window; delete it to watch the "
                        "orchestrator defer to the real maintenance windows.",
+           subject="operational",
            window_type="maintenance",
            days=["monday", "tuesday", "wednesday", "thursday", "friday",
                  "saturday", "sunday"],
@@ -566,6 +567,7 @@ def main():
     upsert(client, "OpsChangeWindow",
            name="emea-standard-maintenance",
            description="Weekly EMEA core/edge maintenance",
+           subject="operational",
            window_type="maintenance",
            days=["tuesday", "thursday"],
            start_utc="21:00", duration_minutes=240,
@@ -574,6 +576,7 @@ def main():
     upsert(client, "OpsChangeWindow",
            name="weekday-low-risk",
            description="Low-blast-radius changes may ride business hours",
+           subject="operational",
            window_type="maintenance",
            days=["monday", "tuesday", "wednesday", "thursday", "friday"],
            start_utc="08:00", duration_minutes=600,
@@ -581,6 +584,7 @@ def main():
     upsert(client, "OpsChangeWindow",
            name="q3-core-audit-freeze",
            description="Core untouchable during the Q3 audit capture",
+           subject="operational",
            window_type="freeze",
            starts_at="2026-07-20T00:00:00Z", ends_at="2026-07-27T00:00:00Z",
            devices=[devices["core-rr-01"].id])
@@ -610,7 +614,7 @@ def main():
     except Exception:
         pass
 
-    print("done. Open a Proposed Change and watch the invariants run.")
+    print("done. Open a Proposed Change and watch the invariant projections run.")
 
 
 if __name__ == "__main__":

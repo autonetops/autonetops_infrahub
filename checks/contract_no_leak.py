@@ -1,37 +1,37 @@
-"""Routing invariant: no-leak.
+"""No-leak invariant - merge-time projection.
 
-When a routing contract's policy carries the ``no_leak`` invariant, the
-owning tenant's routes must never be exported to any zone listed in the
-contract's ``export_deny_zones``. At the data layer that means: no other
-contract whose peer zone is a denied zone may list this tenant in its
-``export_tenants``.
+When a routing contract's intent is guaranteed by a no-leak invariant
+(``IntentNoLeakInvariant``), the owning tenant's routes must never be
+exported to any zone listed in the contract's ``export_deny_zones``. At
+the data layer that means: no other contract whose peer zone is a denied
+zone may list this tenant in its ``export_tenants``.
 
-This is the check that turns "customer C must never leak to internet
-peers" from a review comment into a merge gate.
+This is the projection that turns "customer C must never leak to internet
+peers" from a review comment into a merge gate (the invariant's runtime
+surface is its compiled expectation: forbidden exports absent).
 
 Targeted check: runs once per member of the ``routing_contracts`` group,
 with the contract name passed as the ``contract`` parameter. The tenant
-and the invariant both hang off the contract's policy:
-contract -> policy -> invariants, contract -> policy -> intent -> tenant.
+and the invariant both hang off the contract's intent:
+contract -> intent -> invariants, contract -> intent -> tenant.
 """
 
 from infrahub_sdk.checks import InfrahubCheck
 
 
-def _policy(node):
-    return (node.get("policy") or {}).get("node") or {}
+def _intent(node):
+    return (node.get("intent") or {}).get("node") or {}
 
 
-def _invariant_types(node):
+def _invariant_kinds(node):
     return {
-        e["node"]["invariant_type"]["value"]
-        for e in (_policy(node).get("invariants") or {}).get("edges", [])
+        e["node"]["__typename"]
+        for e in (_intent(node).get("invariants") or {}).get("edges", [])
     }
 
 
 def _tenant(node):
-    intent = (_policy(node).get("intent") or {}).get("node") or {}
-    return (intent.get("tenant") or {}).get("node")
+    return (_intent(node).get("tenant") or {}).get("node")
 
 
 class ContractNoLeakCheck(InfrahubCheck):
@@ -43,7 +43,7 @@ class ContractNoLeakCheck(InfrahubCheck):
             return
         contract = targets[0]["node"]
 
-        if "no_leak" not in _invariant_types(contract):
+        if "IntentNoLeakInvariant" not in _invariant_kinds(contract):
             return
 
         tenant = _tenant(contract)

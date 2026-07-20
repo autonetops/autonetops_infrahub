@@ -7,8 +7,8 @@ customer_edge routing contracts must attach to at least
 PEs must sit in distinct failure domains (different locations).
 
 This is the guardrail that stops the design from quietly degrading as
-exceptions accumulate. Tenants hang off each contract's policy:
-contract -> policy -> intent -> tenant.
+exceptions accumulate. Tenants hang off each contract's intent:
+contract -> intent -> tenant.
 """
 
 from infrahub_sdk.checks import InfrahubCheck
@@ -17,8 +17,7 @@ DEFAULT_MIN_ATTACHMENTS = 2
 
 
 def _tenant(node):
-    policy = (node.get("policy") or {}).get("node") or {}
-    intent = (policy.get("intent") or {}).get("node") or {}
+    intent = (node.get("intent") or {}).get("node") or {}
     return (intent.get("tenant") or {}).get("node")
 
 

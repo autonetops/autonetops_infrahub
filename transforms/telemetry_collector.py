@@ -100,10 +100,9 @@ def _relevant_signals(data, device_name):
     for signal in _edges(data["IntentObservabilitySignal"]):
         watched = _node(signal.get("watches"))
         # the tenant hangs off the signal's own observability contract:
-        # signal -> contract -> policy -> intent -> tenant
+        # signal -> contract -> intent -> tenant
         own_contract = _node(signal.get("contract")) or {}
-        own_policy = _node(own_contract.get("policy")) or {}
-        own_intent = _node(own_policy.get("intent")) or {}
+        own_intent = _node(own_contract.get("intent")) or {}
         tenant = _node(own_intent.get("tenant"))
         entry = {
             "name": _v(signal["name"]),

@@ -16,6 +16,9 @@
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   oob_switches            - OOB management switches (consumed by the OOB check)
 
+menus:
+  - menus/menu-intent.yml
+
 queries:
   - name: oob_reachability
     file_path: "queries/oob_reachability.gql"

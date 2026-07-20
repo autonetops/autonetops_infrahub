@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------------
+# Vocabulary-alignment migration (ADR-0015/0017), step 2 of 2: retire the
+# pre-alignment kinds. `IntentPolicy` and `IntentInvariant` return in
+# schemas/intent.yml as GENERICS (rule instruments) - a same-named kind of
+# a different shape cannot morph in one load, hence retire-then-recreate.
+# `OpsChangeWindow` is recreated by schemas/operations.yml inheriting
+# IntentPolicy. Sequence in retire_1_detach.yml's header.
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+nodes:
+  - name: Realm
+    namespace: Intent
+    state: absent
+
+  - name: Intent
+    namespace: Intent
+    state: absent
+
+  - name: Policy
+    namespace: Intent
+    state: absent
+
+  - name: Invariant
+    namespace: Intent
+    state: absent
+
+  - name: ChangeWindow
+    namespace: Ops
+    state: absent

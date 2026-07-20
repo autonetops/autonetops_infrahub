@@ -61,8 +61,7 @@ class GrafanaDashboardTransform(InfrahubTransform):
         tenant_name = _v(tenant["name"])
 
         def _contract_tenant(node):
-            policy = _node(node.get("policy")) or {}
-            intent = _node(policy.get("intent")) or {}
+            intent = _node(node.get("intent")) or {}
             return _node(intent.get("tenant"))
 
         contracts = [

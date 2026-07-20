@@ -29,16 +29,12 @@ query grafana_dashboard($tenant: String!) {
         max_prefixes_ipv4 {
           value
         }
-        policy {
+        intent {
           node {
-            intent {
+            tenant {
               node {
-                tenant {
-                  node {
-                    name {
-                      value
-                    }
-                  }
+                name {
+                  value
                 }
               }
             }
@@ -76,16 +72,12 @@ query grafana_dashboard($tenant: String!) {
             name {
               value
             }
-            policy {
+            intent {
               node {
-                intent {
+                tenant {
                   node {
-                    tenant {
-                      node {
-                        name {
-                          value
-                        }
-                      }
+                    name {
+                      value
                     }
                   }
                 }

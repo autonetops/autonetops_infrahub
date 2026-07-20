@@ -1,33 +1,40 @@
 # autonetops_infrahub — Intent-Based Networking Lab
 
-InfraHub-backed intent pipeline: a follow-along lab where network intent is
-declared per **realm**, achieved via **policies**, made enforceable by
-**contracts** (compiled to configs, expectations and observability) and
-**invariants** (compiled to merge-blocking checks).
+InfraHub-backed intent pipeline: a follow-along lab built on the shared IBN
+vocabulary (ADR-0015/0017 in `autonetops_ibn`) — an intent is **achieved by
+its contracts** (compiled to configs, expectations and observability),
+**governed by policies** (standing rules, incl. change windows), and
+**guaranteed by invariants** (typed conditions compiled to merge-gating
+checks and always-on expectations).
 
 > **Intent is stable; renderers change. Expectations are the proof.**
 
 ## The model
 
 ```
-IntentRealm            routing | reachability | security | observability |
-                       reliability | compliance | performance
-  └─ IntentIntent      a declared outcome: tenant, priority, statement
-       └─ IntentPolicy how it is realized (design_time / runtime / full)
-            ├─ contracts   IntentContract subtypes: Routing, Reachability,
-            │              Security, Observability, Reliability
-            └─ invariants  IntentInvariant: no_leak, prefix_authorization,
-                           redundancy, capability_present, ... (blocking|warning)
+IntentDefinition       the root: WHY + domain + owner + priority + status
+  ├─ contracts         IntentContract subtypes (owned, cascade): Routing,
+  │                    Reachability, Security, Observability, Reliability
+  ├─ policies          IntentPolicy (referenced, by scope): network rules +
+  │                    operational rules (OpsChangeWindow inherits this)
+  └─ invariants        IntentInvariant typed kinds (referenced, by scope):
+                       NoLeak, PrefixAuthorization, Redundancy,
+                       CapabilityPresent, OobReachability, ...
+                       (severity: warning | major | critical)
+IntentWaiver           time-boxed permission to violate one policy/invariant
 ```
 
-Contracts feed the compilers; invariants feed the merge gates. Supporting
-kinds: `IntentTenant` (who), `IntentZone` (where), `IntentCapability`
-(what a platform can do).
+Contracts feed the compilers; invariant projections feed the merge gates.
+Supporting kinds: `IntentTenant` (who), `IntentZone` (where),
+`IntentCapability` (what a platform can do). `domain` is an attribute
+(connectivity, routing, security, resilience, observability, …), never a
+node kind.
 
 ## Layout
 
 ```
-schemas/intent.yml  the whole intent model (realm/intent/policy/contract/invariant)
+schemas/intent.yml  the whole intent model (intent/contract/policy/invariant/
+                    objective/waiver - mirrors autonetops_ibn's intent_model.yml)
 .infrahub.yml       pipeline wiring (queries, checks, transforms, artifacts)
 queries/            GraphQL read-contracts for checks and compilers
 checks/             merge-gating invariants (no-leak, prefix-auth, redundancy,
@@ -41,8 +48,9 @@ clab/               lab topology (mirrors the SoT 1:1, incl. the OOB plane)
 monitoring/         static telegraf/Prometheus/Grafana plumbing; compiled
                     fragments land in telegraf.d/, rules/, dashboards/
 docs/workshop.md    the full walkthrough (phases 0-7 + drift exercises)
-docs/workshop2.md   IBN theory & terminology (realm/intent/policy/contract/
-                    invariant/expectation, the control loop, design laws),
+docs/workshop2.md   IBN theory & terminology (intent/contract/objective/
+                    policy/invariant/waiver/expectation, the control loop,
+                    design laws),
                     day-2 operations: change the SoT on a branch, let the
                     orchestrator plan/schedule/dispatch it (change windows
                     live in the SoT: schemas/operations.yml), and the staged
@@ -72,7 +80,7 @@ cd ../monitoring && docker compose up -d --build
 
 ## The one-sentence architecture
 
-Intent (realm → intent → policy → contracts + invariants, in InfraHub) →
+Intent (intent → contracts, governed by policies and invariants, in InfraHub) →
 compiled artifacts (configs + expectations + collectors + alerts +
 dashboards) → planned, canary-first delivery (autonetops_ibn) → containerlab
 network → telemetry evidence → alerts that fire exactly when an expectation

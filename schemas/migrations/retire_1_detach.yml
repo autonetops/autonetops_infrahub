@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+# Vocabulary-alignment migration (ADR-0015/0017), step 1 of 2: detach the
+# two relationships whose OWNING kinds survive the migration but whose
+# peers retire in step 2 (contract -> grouping policy, tenant -> intent).
+# InfraHub schema loads MERGE with the live schema, so removals are
+# explicit `state: absent` entries on otherwise-complete definitions.
+# Relationships owned by retiring kinds die with the kind in step 2.
+#
+# Full sequence (data first):
+#   1. python scripts/migrate_to_aligned_model.py           # purge instances
+#   2. infrahubctl schema load schemas/migrations/retire_1_detach.yml
+#   3. infrahubctl schema load schemas/migrations/retire_2_kinds.yml
+#   4. infrahubctl schema load schemas/intent.yml schemas/operations.yml
+#   5. python scripts/bootstrap.py
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+generics:
+  - name: Contract
+    namespace: Intent
+    description: "A typed, machine-verifiable promise. (Mid-migration shape.)"
+    label: "Contract"
+    icon: "mdi:file-sign"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: policy
+        peer: IntentPolicy
+        identifier: policy__contracts
+        optional: false
+        cardinality: one
+        kind: Parent
+        state: absent
+
+nodes:
+  - name: Tenant
+    namespace: Intent
+    description: "Who an intent serves - a customer, a partner or the provider itself."
+    label: "Tenant"
+    icon: "mdi:domain"
+    inherit_from:
+      - CoreArtifactTarget
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: owner
+        kind: Text
+        order_weight: 1200
+      - name: environment
+        kind: Dropdown
+        optional: true
+        order_weight: 1300
+        choices:
+          - name: dev
+          - name: staging
+          - name: prod
+      - name: tenant_community
+        kind: Text
+        optional: true
+        order_weight: 1400
+      - name: ticket
+        kind: Text
+        optional: true
+        order_weight: 1500
+    relationships:
+      - name: vrfs
+        peer: IpamVRF
+        identifier: intenttenant__vrf
+        optional: true
+        cardinality: many
+        kind: Attribute
+      - name: intents
+        peer: IntentIntent
+        identifier: tenant__intents
+        optional: true
+        cardinality: many
+        kind: Generic
+        state: absent

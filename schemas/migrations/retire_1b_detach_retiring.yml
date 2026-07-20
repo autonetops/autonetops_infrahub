@@ -1,0 +1,165 @@
+# ---------------------------------------------------------------------------
+# Vocabulary-alignment migration, step 1b: detach the retiring kinds from
+# EACH OTHER. InfraHub validates kind removals incrementally, so even
+# references between two kinds that retire in the same load must be
+# severed first (the intent <-> grouping-policy cycle makes any removal
+# order fail otherwise). Data is already purged; these are schema edges
+# only. Sequence in retire_1_detach.yml's header - this file loads between
+# step 1 and step 2.
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+nodes:
+  - name: Realm
+    namespace: Intent
+    description: "A domain of concern. (Mid-migration shape; retires in step 2.)"
+    label: "Realm"
+    icon: "mdi:earth"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+    relationships:
+      - name: intents
+        peer: IntentIntent
+        identifier: realm__intents
+        optional: true
+        cardinality: many
+        kind: Generic
+        state: absent
+
+  - name: Intent
+    namespace: Intent
+    description: "A declared outcome the network must achieve. (Mid-migration shape.)"
+    label: "Intent"
+    icon: "mdi:target"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: statement
+        kind: TextArea
+        order_weight: 1050
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: owner
+        kind: Text
+        optional: true
+        order_weight: 1400
+      - name: ticket
+        kind: Text
+        optional: true
+        order_weight: 1500
+    relationships:
+      - name: realm
+        peer: IntentRealm
+        identifier: realm__intents
+        optional: false
+        cardinality: one
+        kind: Attribute
+        state: absent
+      - name: policies
+        peer: IntentPolicy
+        identifier: intent__policies
+        optional: true
+        cardinality: many
+        kind: Component
+        state: absent
+      - name: tenant
+        peer: IntentTenant
+        identifier: tenant__intents
+        optional: true
+        cardinality: one
+        kind: Attribute
+        state: absent
+
+  - name: Policy
+    namespace: Intent
+    description: "How an intent is realized. (Mid-migration shape; retires in step 2.)"
+    label: "Policy"
+    icon: "mdi:script-text"
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: intent
+        peer: IntentIntent
+        identifier: intent__policies
+        optional: false
+        cardinality: one
+        kind: Parent
+        state: absent
+      - name: contracts
+        peer: IntentContract
+        identifier: policy__contracts
+        optional: true
+        cardinality: many
+        kind: Component
+        state: absent
+      - name: invariants
+        peer: IntentInvariant
+        identifier: policy__invariants
+        optional: true
+        cardinality: many
+        kind: Component
+        state: absent
+
+  - name: Invariant
+    namespace: Intent
+    description: "A condition that must always hold. (Mid-migration shape; retires in step 2.)"
+    label: "Invariant"
+    icon: "mdi:shield-lock"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+    relationships:
+      - name: policy
+        peer: IntentPolicy
+        identifier: policy__invariants
+        optional: false
+        cardinality: one
+        kind: Parent
+        state: absent

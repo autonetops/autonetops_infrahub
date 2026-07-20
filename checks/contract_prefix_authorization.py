@@ -6,8 +6,8 @@ tenant's VRFs). A contract cannot authorize address space the tenant does
 not own - that is how hijacks and fat-finger announcements get through.
 
 Targeted check: runs once per member of the ``routing_contracts`` group.
-The tenant hangs off the contract's policy:
-contract -> policy -> intent -> tenant.
+The tenant hangs off the contract's intent:
+contract -> intent -> tenant.
 """
 
 import ipaddress
@@ -15,12 +15,8 @@ import ipaddress
 from infrahub_sdk.checks import InfrahubCheck
 
 
-def _policy(node):
-    return (node.get("policy") or {}).get("node") or {}
-
-
 def _tenant(node):
-    intent = (_policy(node).get("intent") or {}).get("node") or {}
+    intent = (node.get("intent") or {}).get("node") or {}
     return (intent.get("tenant") or {}).get("node")
 
 

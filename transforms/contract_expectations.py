@@ -19,11 +19,20 @@ A validator (execution layer, out of scope here) consumes this file and
 compares it against Prometheus/telegraf evidence continuously.
 """
 
+import re
+
 import yaml
 
 from infrahub_sdk.transforms import InfrahubTransform
 
 MIN_UPTIME_SECONDS = 300
+
+
+def _invariant_type(typename):
+    """The invariant's kind IS its type (ADR-0017 D3):
+    IntentNoLeakInvariant -> no_leak."""
+    stem = typename.removeprefix("Intent").removesuffix("Invariant")
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", stem).lower()
 
 
 def _v(attr):
@@ -92,13 +101,12 @@ class ContractExpectationsTransform(InfrahubTransform):
     async def transform(self, data):
         contract = data["IntentRoutingContract"]["edges"][0]["node"]
         name = _v(contract["name"])
-        # the hierarchy above the contract:
-        # contract -> policy -> intent -> (realm, tenant)
-        policy = _node(contract.get("policy")) or {}
-        intent = _node(policy.get("intent")) or {}
-        realm = _node(intent.get("realm")) or {}
+        # the hierarchy above the contract (ADR-0015/0017): the contract
+        # hangs straight off its intent; the invariants that guarantee the
+        # intent are referenced on the same node
+        intent = _node(contract.get("intent")) or {}
         tenant = _node(intent.get("tenant"))
-        invariants = _edges(policy.get("invariants"))
+        invariants = _edges(intent.get("invariants"))
 
         sessions = []
         for s in _derive_sessions(contract):
@@ -131,7 +139,7 @@ class ContractExpectationsTransform(InfrahubTransform):
 
         forbidden_actions = []
         for inv in invariants:
-            itype = _v(inv["invariant_type"])
+            itype = _invariant_type(inv["__typename"])
             if itype == "no_leak" and tenant:
                 forbidden_actions.append(
                     f"export_prefixes_from_tenant({_v(tenant['name'])})"
@@ -165,13 +173,17 @@ class ContractExpectationsTransform(InfrahubTransform):
             "kind": "ContractExpectations",
             "metadata": {
                 "name": name,
-                "realm": _v(realm.get("name")),
                 "intent": _v(intent.get("name")),
-                "statement": _v(intent.get("statement")),
-                "policy": _v(policy.get("name")),
-                "enforcement": _v(policy.get("enforcement")),
+                "domain": _v(intent.get("domain")),
+                "description": _v(intent.get("description")),
                 "tenant": _v(tenant["name"]) if tenant else None,
                 "zone": _v((_node(contract.get("zone")) or {}).get("name")),
+                # every compiled check cites the intent it derives from
+                # (ADR-0015 decision 8)
+                "derivesFrom": (
+                    f"infrahub://Intent/{_v(intent.get('name'))}"
+                    f"/contract/{name}"
+                ),
             },
             "spec": {
                 "bgp": {
