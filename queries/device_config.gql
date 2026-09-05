@@ -385,4 +385,19 @@ query device_config($device: String!) {
       }
     }
   }
+  IntentSnmpCommunity {
+    edges {
+      node {
+        name {
+          value
+        }
+        community_string {
+          value
+        }
+        access {
+          value
+        }
+      }
+    }
+  }
 }

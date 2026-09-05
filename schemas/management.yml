@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------------------
+# Management-plane model - HOW operators and pollers reach the network.
+#
+# IntentSnmpCommunity: one SNMP v2c community the device renderers emit on
+# every platform whose CLI takes one (the transform wrapper owns the
+# vendor spelling). The community VALUE lives here - in the graph, behind
+# Infrahub auth - never in this repository's code, so the repo stays free
+# of credentials. No nodes, no rendered section: branches without
+# communities produce byte-identical configs.
+#
+# Load together with the rest:
+#   infrahubctl schema load schemas/intent.yml schemas/operations.yml \
+#       schemas/management.yml
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+nodes:
+  - name: SnmpCommunity
+    namespace: Intent
+    description: "An SNMP v2c community rendered into every device configuration."
+    label: "SNMP Community"
+    icon: "mdi:access-point-network"
+    include_in_menu: false
+    display_labels:
+      - name__value
+    human_friendly_id:
+      - name__value
+    order_by:
+      - name__value
+    uniqueness_constraints:
+      - [name__value]
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: community_string
+        kind: Password
+        description: "The community value pushed to devices (kept out of git)."
+        order_weight: 1100
+      - name: access
+        kind: Dropdown
+        choices:
+          - name: ro
+            label: "Read-only"
+            color: "#5aa469"
+          - name: rw
+            label: "Read-write"
+            color: "#d9534f"
+        default_value: "ro"
+        order_weight: 1200
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1300

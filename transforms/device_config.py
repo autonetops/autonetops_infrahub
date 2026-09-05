@@ -45,6 +45,46 @@ SRL_AFI_SAFI = {
 SRL_LABEL_BLOCK = "ldp-labels"
 SRL_LABEL_RANGE = (10000, 20000)
 
+# Management-plane access: SNMP v2c communities come from the intent
+# graph (IntentSnmpCommunity nodes, schemas/management.yml) - the VALUE
+# is data, never code, so this repository stays free of credentials.
+# Rendered by the transform wrapper (every renderer shape ends its own
+# way; the section is identical per platform), keyed by platform so a
+# vendor without the v2c knob renders nothing. No data, no section:
+# byte-identical output on branches that carry no communities.
+SNMP_LINE = {
+    "cisco_iosxe": "snmp-server community {community} {access}",
+    "arista_eos": "snmp-server community {community} {access}",
+}
+
+
+def parse_snmp_communities(data):
+    out = []
+    for node in _edges(data.get("IntentSnmpCommunity")):
+        community = _v(node.get("community_string"))
+        if not community:
+            continue
+        out.append({
+            "community": community,
+            "access": (_v(node.get("access")) or "ro").lower(),
+        })
+    return out
+
+
+def render_snmp_section(platform, communities):
+    template = SNMP_LINE.get(platform or "")
+    if not template or not communities:
+        return ""
+    lines = ["!"]
+    for entry in communities:
+        access = entry["access"]
+        if platform == "cisco_iosxe":
+            access = access.upper()
+        lines.append(
+            template.format(community=entry["community"], access=access)
+        )
+    return "\n".join(lines) + "\n"
+
 
 # --------------------------------------------------------------------------
 # Intent-graph extraction helpers
@@ -1291,4 +1331,8 @@ class DeviceConfigTransform(InfrahubTransform):
                 f"'{device['platform']}' (device {device['name']}).\n"
                 f"# Intent stays stable - add a renderer, not a schema field.\n"
             )
-        return renderer(device, contracts, policies)
+        rendered = renderer(device, contracts, policies)
+        rendered += render_snmp_section(
+            device["platform"], parse_snmp_communities(data),
+        )
+        return rendered
