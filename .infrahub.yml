@@ -68,6 +68,9 @@ python_transforms:
   - name: device_config
     class_name: DeviceConfigTransform
     file_path: "transforms/device_config.py"
+  - name: device_snmp
+    class_name: DeviceSnmpTransform
+    file_path: "transforms/device_snmp.py"
   - name: contract_expectations
     class_name: ContractExpectationsTransform
     file_path: "transforms/contract_expectations.py"
@@ -87,6 +90,19 @@ artifact_definitions:
     content_type: text/plain
     targets: network_devices
     transformation: device_config
+    parameters:
+      device: name__value
+
+  # Sectioned artifacts: one slice of the device configuration each —
+  # independently pushable, diffable, and pinnable by a change plan.
+  # The monolith above stays as the full intended state (audit /
+  # config-replace); sections are what a plan ships. device-acl,
+  # device-interfaces, device-base-configuration follow this pattern.
+  - name: device-snmp
+    artifact_name: device-snmp
+    content_type: text/plain
+    targets: network_devices
+    transformation: device_snmp
     parameters:
       device: name__value
 
