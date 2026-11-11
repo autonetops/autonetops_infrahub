@@ -1,0 +1,37 @@
+# Read contract for the edge_bgp_local_pref generator.
+#
+# $device is the target (one run per edge_bgp member). The group block returns
+# the whole pair, so every run sees both members and their current values.
+query edge_bgp_local_pref($device: String!) {
+  DcimDevice(name__value: $device) {
+    edges {
+      node {
+        id
+        name {
+          value
+        }
+      }
+    }
+  }
+  CoreStandardGroup(name__value: "edge_bgp") {
+    edges {
+      node {
+        members {
+          edges {
+            node {
+              id
+              ... on DcimDevice {
+                name {
+                  value
+                }
+                bgp_local_pref {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

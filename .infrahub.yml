@@ -15,6 +15,7 @@
 #                             artifacts)
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   oob_switches            - OOB management switches (consumed by the OOB check)
+#   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
 queries:
   - name: oob_reachability
@@ -37,6 +38,8 @@ queries:
     file_path: "queries/prometheus_rules.gql"
   - name: grafana_dashboard
     file_path: "queries/grafana_dashboard.gql"
+  - name: edge_bgp_local_pref
+    file_path: "queries/edge_bgp_local_pref.gql"
 
 check_definitions:
   - name: oob_reachability_check
@@ -60,6 +63,15 @@ check_definitions:
     targets: routing_contracts
     parameters:
       contract: name__value
+
+generator_definitions:
+  - name: edge_bgp_local_pref
+    class_name: EdgeBgpLocalPrefGenerator
+    file_path: "generators/edge_bgp_local_pref.py"
+    query: edge_bgp_local_pref
+    targets: edge_bgp
+    parameters:
+      device: name__value
 
 python_transforms:
   - name: device_config

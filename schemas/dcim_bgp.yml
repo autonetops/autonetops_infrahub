@@ -1,0 +1,20 @@
+# ---------------------------------------------------------------------------
+# BGP knobs on DcimDevice.
+#
+# bgp_local_pref is the device-level LOCAL_PREF the edge applies to routes it
+# learns. The edge_bgp_local_pref generator owns this value for members of the
+# edge_bgp group (see generators/edge_bgp_local_pref.py).
+# ---------------------------------------------------------------------------
+---
+version: "1.0"
+
+extensions:
+  nodes:
+    - kind: DcimDevice
+      attributes:
+        - name: bgp_local_pref
+          label: "BGP Local Pref"
+          kind: Number
+          optional: true
+          description: "BGP LOCAL_PREF this device applies to learned routes (higher wins)."
+          order_weight: 5000
