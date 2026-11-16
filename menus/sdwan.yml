@@ -1,0 +1,3730 @@
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/menu/latest.json
+apiVersion: infrahub.app/v1
+kind: Menu
+spec:
+  data:
+  - namespace: Sdwan
+    name: Sdwan
+    label: SD-WAN
+    icon: mdi:wan
+    children:
+      data:
+      - namespace: Sdwan
+        name: Instance
+        label: Instances
+        icon: mdi:wan
+        kind: SdwanInstance
+        order_weight: 1000
+      - namespace: Sdwan
+        name: EdgeFeatureTemplates
+        label: Edge Feature Templates
+        icon: mdi:folder
+        children:
+          data:
+          - namespace: Sdwan
+            name: AaaTemplates
+            label: AAA Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: AaaTemplate
+                label: AAA Template
+                kind: SdwanAaaTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTATAccountingRule
+                label: Accounting Rules
+                kind: SdwanEFTATAccountingRule
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTATAuthorizationRule
+                label: Authorization Rules
+                kind: SdwanEFTATAuthorizationRule
+                order_weight: 1020
+              - namespace: Sdwan
+                name: RadiusDynamicAuthor
+                label: RADIUS Dynamic Author
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: AaaTemplateRadiusDynamicAut
+                    label: RADIUS Dynamic Author
+                    kind: SdwanAaaTemplateRadiusDynamicAut
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Client
+                    label: Clients
+                    kind: SdwanClient
+                    order_weight: 1010
+                order_weight: 1030
+              - namespace: Sdwan
+                name: RadiusServerGroups
+                label: RADIUS Server Groups
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: RadiusServerGroup
+                    label: RADIUS Server Group
+                    kind: SdwanRadiusServerGroup
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTATRSGServer
+                    label: Servers
+                    kind: SdwanEFTATRSGServer
+                    order_weight: 1010
+                order_weight: 1040
+              - namespace: Sdwan
+                name: TacacsServerGroups
+                label: TACACS Server Groups
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: TacacsServerGroup
+                    label: TACACS Server Group
+                    kind: SdwanTacacsServerGroup
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTATTSGServer
+                    label: Servers
+                    kind: SdwanEFTATTSGServer
+                    order_weight: 1010
+                order_weight: 1050
+              - namespace: Sdwan
+                name: EFTATUser
+                label: Users
+                kind: SdwanEFTATUser
+                order_weight: 1060
+            order_weight: 1000
+          - namespace: Sdwan
+            name: BannerTemplate
+            label: Banner Templates
+            kind: SdwanBannerTemplate
+            order_weight: 1010
+          - namespace: Sdwan
+            name: BfdTemplates
+            label: BFD Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: BfdTemplate
+                label: BFD Template
+                kind: SdwanBfdTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTBTColor
+                label: Colors
+                kind: SdwanEFTBTColor
+                order_weight: 1010
+            order_weight: 1020
+          - namespace: Sdwan
+            name: BgpTemplates
+            label: BGP Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: BgpTemplate
+                label: BGP Template
+                kind: SdwanBgpTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Ipv4AddressFamily
+                label: IPv4 Address Family
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: BgpTemplateIpv4AddressFamil
+                    label: IPv4 Address Family
+                    kind: SdwanBgpTemplateIpv4AddressFamil
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTBTI4AFAggregateAddress
+                    label: Aggregate Addresses
+                    kind: SdwanEFTBTI4AFAggregateAddress
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Neighbors
+                    label: Neighbors
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: EFTBTI4AFNeighbor
+                        label: Neighbor
+                        kind: SdwanEFTBTI4AFNeighbor
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: EFTBTI4AFNAddressFamily
+                        label: Address Families
+                        kind: SdwanEFTBTI4AFNAddressFamily
+                        order_weight: 1010
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: EFTBTI4AFNetwork
+                    label: Networks
+                    kind: SdwanEFTBTI4AFNetwork
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: EFTBTI4AFRedistribute
+                    label: Redistributes
+                    kind: SdwanEFTBTI4AFRedistribute
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: RouteTargets
+                    label: Route Targets
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: EFTBTI4AFRouteTarget
+                        label: Route Target
+                        kind: SdwanEFTBTI4AFRouteTarget
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: EFTBTI4AFRTImport
+                        label: Imports
+                        kind: SdwanEFTBTI4AFRTImport
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: EFTBTI4AFRTExport
+                        label: Exports
+                        kind: SdwanEFTBTI4AFRTExport
+                        order_weight: 1020
+                    order_weight: 1050
+                order_weight: 1010
+              - namespace: Sdwan
+                name: Ipv6AddressFamily
+                label: IPv6 Address Family
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: BgpTemplateIpv6AddressFamil
+                    label: IPv6 Address Family
+                    kind: SdwanBgpTemplateIpv6AddressFamil
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTBTI6AFAggregateAddress
+                    label: Aggregate Addresses
+                    kind: SdwanEFTBTI6AFAggregateAddress
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Neighbors2
+                    label: Neighbors
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: EFTBTI6AFNeighbor
+                        label: Neighbor
+                        kind: SdwanEFTBTI6AFNeighbor
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: EFTBTI6AFNAddressFamily
+                        label: Address Families
+                        kind: SdwanEFTBTI6AFNAddressFamily
+                        order_weight: 1010
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: EFTBTI6AFNetwork
+                    label: Networks
+                    kind: SdwanEFTBTI6AFNetwork
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: EFTBTI6AFRedistribute
+                    label: Redistributes
+                    kind: SdwanEFTBTI6AFRedistribute
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: RouteTargets2
+                    label: Route Targets
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: EFTBTI6AFRouteTarget
+                        label: Route Target
+                        kind: SdwanEFTBTI6AFRouteTarget
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: EFTBTI6AFRTImport
+                        label: Imports
+                        kind: SdwanEFTBTI6AFRTImport
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: EFTBTI6AFRTExport
+                        label: Exports
+                        kind: SdwanEFTBTI6AFRTExport
+                        order_weight: 1020
+                    order_weight: 1050
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTBTMplsInterface
+                label: MPLS Interfaces
+                kind: SdwanEFTBTMplsInterface
+                order_weight: 1030
+            order_weight: 1030
+          - namespace: Sdwan
+            name: CliTemplate
+            label: CLI Templates
+            kind: SdwanCliTemplate
+            order_weight: 1040
+          - namespace: Sdwan
+            name: DhcpServerTemplates
+            label: DHCP Server Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: DhcpServerTemplate
+                label: DHCP Server Template
+                kind: SdwanDhcpServerTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: ExcludeAddressesRange
+                label: Exclude Addresses Ranges
+                kind: SdwanExcludeAddressesRange
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTDSTOption
+                label: Options
+                kind: SdwanEFTDSTOption
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTDSTStaticLease
+                label: Static Leases
+                kind: SdwanEFTDSTStaticLease
+                order_weight: 1030
+            order_weight: 1050
+          - namespace: Sdwan
+            name: EthernetInterfaceTemplates
+            label: Ethernet Interface Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: EFTEthernetInterfaceTemplat
+                label: Ethernet Interface Template
+                kind: SdwanEFTEthernetInterfaceTemplat
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Ipv4PortForwardingRule
+                label: IPv4 Port Forwarding Rules
+                kind: SdwanIpv4PortForwardingRule
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTEITIpv4SecondaryAddress
+                label: IPv4 Secondary Addresses
+                kind: SdwanEFTEITIpv4SecondaryAddress
+                order_weight: 1020
+              - namespace: Sdwan
+                name: Ipv4StaticNatRule
+                label: IPv4 Static NAT Rules
+                kind: SdwanIpv4StaticNatRule
+                order_weight: 1030
+              - namespace: Sdwan
+                name: Ipv4VrrpGroups
+                label: IPv4 VRRP Groups
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTEITIpv4VrrpGroup
+                    label: IPv4 VRRP Group
+                    kind: SdwanEFTEITIpv4VrrpGroup
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTEITI4VGSecondaryAddress
+                    label: Secondary Addresses
+                    kind: SdwanEFTEITI4VGSecondaryAddress
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: EFTEITI4VGTrackingObject
+                    label: Tracking Objects
+                    kind: SdwanEFTEITI4VGTrackingObject
+                    order_weight: 1020
+                order_weight: 1040
+              - namespace: Sdwan
+                name: EFTEITIpv6DhcpHelper
+                label: IPv6 DHCP Helpers
+                kind: SdwanEFTEITIpv6DhcpHelper
+                order_weight: 1050
+              - namespace: Sdwan
+                name: Ipv6PortForwardingRule
+                label: IPv6 Port Forwarding Rules
+                kind: SdwanIpv6PortForwardingRule
+                order_weight: 1060
+              - namespace: Sdwan
+                name: EFTEITIpv6SecondaryAddress
+                label: IPv6 Secondary Addresses
+                kind: SdwanEFTEITIpv6SecondaryAddress
+                order_weight: 1070
+              - namespace: Sdwan
+                name: Ipv6StaticNatRule
+                label: IPv6 Static NAT Rules
+                kind: SdwanIpv6StaticNatRule
+                order_weight: 1080
+              - namespace: Sdwan
+                name: EFTEITIpv6VrrpGroup
+                label: IPv6 VRRP Groups
+                kind: SdwanEFTEITIpv6VrrpGroup
+                order_weight: 1090
+              - namespace: Sdwan
+                name: EFTEITStaticArp
+                label: Static ARPs
+                kind: SdwanEFTEITStaticArp
+                order_weight: 1100
+            order_weight: 1060
+          - namespace: Sdwan
+            name: GlobalSettingsTemplate
+            label: Global Settings Templates
+            kind: SdwanGlobalSettingsTemplate
+            order_weight: 1070
+          - namespace: Sdwan
+            name: IgmpTemplates
+            label: IGMP Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: IgmpTemplate
+                label: IGMP Template
+                kind: SdwanIgmpTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Interfaces
+                label: Interfaces
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTITInterface
+                    label: Interface
+                    kind: SdwanEFTITInterface
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTITIJoinGroup
+                    label: Join Groups
+                    kind: SdwanEFTITIJoinGroup
+                    order_weight: 1010
+                order_weight: 1010
+            order_weight: 1080
+          - namespace: Sdwan
+            name: EFTIpsecInterfaceTemplate
+            label: IPSEC Interface Templates
+            kind: SdwanEFTIpsecInterfaceTemplate
+            order_weight: 1090
+          - namespace: Sdwan
+            name: LoggingTemplates
+            label: Logging Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: LoggingTemplate
+                label: Logging Template
+                kind: SdwanLoggingTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTLTIpv4Server
+                label: IPv4 Servers
+                kind: SdwanEFTLTIpv4Server
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTLTIpv6Server
+                label: IPv6 Servers
+                kind: SdwanEFTLTIpv6Server
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTLTTlsProfile
+                label: TLS Profiles
+                kind: SdwanEFTLTTlsProfile
+                order_weight: 1030
+            order_weight: 1100
+          - namespace: Sdwan
+            name: MulticastTemplate
+            label: Multicast Templates
+            kind: SdwanMulticastTemplate
+            order_weight: 1110
+          - namespace: Sdwan
+            name: NtpTemplates
+            label: NTP Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: NtpTemplate
+                label: NTP Template
+                kind: SdwanNtpTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTNTAuthenticationKey
+                label: Authentication Keys
+                kind: SdwanEFTNTAuthenticationKey
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTNTServer
+                label: Servers
+                kind: SdwanEFTNTServer
+                order_weight: 1020
+            order_weight: 1120
+          - namespace: Sdwan
+            name: OmpTemplate
+            label: OMP Templates
+            kind: SdwanOmpTemplate
+            order_weight: 1130
+          - namespace: Sdwan
+            name: OspfTemplates
+            label: OSPF Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: OspfTemplate
+                label: OSPF Template
+                kind: SdwanOspfTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Areas
+                label: Areas
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTOTArea
+                    label: Area
+                    kind: SdwanEFTOTArea
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTOTAInterface
+                    label: Interfaces
+                    kind: SdwanEFTOTAInterface
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: EFTOTARange
+                    label: Ranges
+                    kind: SdwanEFTOTARange
+                    order_weight: 1020
+                order_weight: 1010
+              - namespace: Sdwan
+                name: MaxMetricRouterLsa
+                label: Max Metric Router Lsas
+                kind: SdwanMaxMetricRouterLsa
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTOTRedistribute
+                label: Redistributes
+                kind: SdwanEFTOTRedistribute
+                order_weight: 1030
+            order_weight: 1140
+          - namespace: Sdwan
+            name: PimTemplates
+            label: PIM Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: PimTemplate
+                label: PIM Template
+                kind: SdwanPimTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTPTInterface
+                label: Interfaces
+                kind: SdwanEFTPTInterface
+                order_weight: 1010
+              - namespace: Sdwan
+                name: RpAddress
+                label: RP Addresses
+                kind: SdwanRpAddress
+                order_weight: 1020
+              - namespace: Sdwan
+                name: RpAnnounce
+                label: RP Announces
+                kind: SdwanRpAnnounce
+                order_weight: 1030
+              - namespace: Sdwan
+                name: RpCandidate
+                label: RP Candidates
+                kind: SdwanRpCandidate
+                order_weight: 1040
+            order_weight: 1150
+          - namespace: Sdwan
+            name: SecureInternetGatewayTemplates
+            label: Secure Internet Gateway Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: EdgeFeatureTemplateSecureIn
+                label: Secure Internet Gateway Template
+                kind: SdwanEdgeFeatureTemplateSecureIn
+                order_weight: 1000
+              - namespace: Sdwan
+                name: HighAvailabilityInterfaceP2
+                label: High Availability Interface Pairs
+                kind: SdwanHighAvailabilityInterfaceP2
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTSIGTInterface
+                label: Interfaces
+                kind: SdwanEFTSIGTInterface
+                order_weight: 1020
+              - namespace: Sdwan
+                name: Tracker
+                label: Trackers
+                kind: SdwanTracker
+                order_weight: 1030
+            order_weight: 1160
+          - namespace: Sdwan
+            name: SecurityTemplates
+            label: Security Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: SecurityTemplate
+                label: Security Template
+                kind: SdwanSecurityTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTSTKeyChain
+                label: Key Chains
+                kind: SdwanEFTSTKeyChain
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTSTKey
+                label: Keys
+                kind: SdwanEFTSTKey
+                order_weight: 1020
+            order_weight: 1170
+          - namespace: Sdwan
+            name: SigCredentialsTemplate
+            label: SIG Credentials Templates
+            kind: SdwanSigCredentialsTemplate
+            order_weight: 1180
+          - namespace: Sdwan
+            name: SnmpTemplates
+            label: SNMP Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: SnmpTemplate
+                label: SNMP Template
+                kind: SdwanSnmpTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTSTCommunity
+                label: Communities
+                kind: SdwanEFTSTCommunity
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTSTGroup
+                label: Groups
+                kind: SdwanEFTSTGroup
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTSTTrapTargetServer
+                label: Trap Target Servers
+                kind: SdwanEFTSTTrapTargetServer
+                order_weight: 1030
+              - namespace: Sdwan
+                name: EFTSTUser
+                label: Users
+                kind: SdwanEFTSTUser
+                order_weight: 1040
+              - namespace: Sdwan
+                name: Views
+                label: Views
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTSTView
+                    label: View
+                    kind: SdwanEFTSTView
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTSTVOid
+                    label: Oids
+                    kind: SdwanEFTSTVOid
+                    order_weight: 1010
+                order_weight: 1050
+            order_weight: 1190
+          - namespace: Sdwan
+            name: SviInterfaceTemplates
+            label: SVI Interface Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: EFTSviInterfaceTemplate
+                label: SVI Interface Template
+                kind: SdwanEFTSviInterfaceTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EFTSITIpv4SecondaryAddress
+                label: IPv4 Secondary Addresses
+                kind: SdwanEFTSITIpv4SecondaryAddress
+                order_weight: 1010
+              - namespace: Sdwan
+                name: Ipv4VrrpGroups2
+                label: IPv4 VRRP Groups
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTSITIpv4VrrpGroup
+                    label: IPv4 VRRP Group
+                    kind: SdwanEFTSITIpv4VrrpGroup
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTSITI4VGSecondaryAddress
+                    label: Secondary Addresses
+                    kind: SdwanEFTSITI4VGSecondaryAddress
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: EFTSITI4VGTrackingObject
+                    label: Tracking Objects
+                    kind: SdwanEFTSITI4VGTrackingObject
+                    order_weight: 1020
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTSITIpv6DhcpHelper
+                label: IPv6 DHCP Helpers
+                kind: SdwanEFTSITIpv6DhcpHelper
+                order_weight: 1030
+              - namespace: Sdwan
+                name: EFTSITIpv6SecondaryAddress
+                label: IPv6 Secondary Addresses
+                kind: SdwanEFTSITIpv6SecondaryAddress
+                order_weight: 1040
+              - namespace: Sdwan
+                name: Ipv6VrrpGroups
+                label: IPv6 VRRP Groups
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTSITIpv6VrrpGroup
+                    label: IPv6 VRRP Group
+                    kind: SdwanEFTSITIpv6VrrpGroup
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTSITI6VGSecondaryAddress
+                    label: Secondary Addresses
+                    kind: SdwanEFTSITI6VGSecondaryAddress
+                    order_weight: 1010
+                order_weight: 1050
+              - namespace: Sdwan
+                name: EFTSITStaticArp
+                label: Static ARPs
+                kind: SdwanEFTSITStaticArp
+                order_weight: 1060
+            order_weight: 1200
+          - namespace: Sdwan
+            name: SwitchportTemplates
+            label: Switchport Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: EFTSwitchportTemplate
+                label: Switchport Template
+                kind: SdwanEFTSwitchportTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Interfaces2
+                label: Interfaces
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTSTInterface
+                    label: Interface
+                    kind: SdwanEFTSTInterface
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: TrunkAllowedVlansRange
+                    label: Trunk Allowed Vlans Ranges
+                    kind: SdwanTrunkAllowedVlansRange
+                    order_weight: 1010
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EFTSTStaticMacAddress
+                label: Static MAC Addresses
+                kind: SdwanEFTSTStaticMacAddress
+                order_weight: 1020
+            order_weight: 1210
+          - namespace: Sdwan
+            name: SystemTemplates
+            label: System Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: SystemTemplate
+                label: System Template
+                kind: SdwanSystemTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EndpointTracker
+                label: Endpoint Trackers
+                kind: SdwanEndpointTracker
+                order_weight: 1010
+              - namespace: Sdwan
+                name: GeoFencingSmsPhoneNumber
+                label: Geo Fencing Sms Phone Numbers
+                kind: SdwanGeoFencingSmsPhoneNumber
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EFTSTObjectTracker
+                label: Object Trackers
+                kind: SdwanEFTSTObjectTracker
+                order_weight: 1030
+            order_weight: 1220
+          - namespace: Sdwan
+            name: ThousandeyesTemplate
+            label: Thousandeyes Templates
+            kind: SdwanThousandeyesTemplate
+            order_weight: 1230
+          - namespace: Sdwan
+            name: VpnTemplates
+            label: VPN Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: VpnTemplate
+                label: VPN Template
+                kind: SdwanVpnTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Ipv4DnsHost
+                label: IPv4 DNS Hosts
+                kind: SdwanIpv4DnsHost
+                order_weight: 1010
+              - namespace: Sdwan
+                name: Ipv4StaticGreRoute
+                label: IPv4 Static GRE Routes
+                kind: SdwanIpv4StaticGreRoute
+                order_weight: 1020
+              - namespace: Sdwan
+                name: Ipv4StaticIpsecRoute
+                label: IPv4 Static IPSEC Routes
+                kind: SdwanIpv4StaticIpsecRoute
+                order_weight: 1030
+              - namespace: Sdwan
+                name: Ipv4StaticRoutes
+                label: IPv4 Static Routes
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTVTIpv4StaticRoute
+                    label: IPv4 Static Route
+                    kind: SdwanEFTVTIpv4StaticRoute
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTI4SRNextHop
+                    label: Next Hops
+                    kind: SdwanEFTVTI4SRNextHop
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: TrackNextHop
+                    label: Track Next Hops
+                    kind: SdwanTrackNextHop
+                    order_weight: 1020
+                order_weight: 1040
+              - namespace: Sdwan
+                name: Ipv4StaticServiceRoute
+                label: IPv4 Static Service Routes
+                kind: SdwanIpv4StaticServiceRoute
+                order_weight: 1050
+              - namespace: Sdwan
+                name: Ipv6DnsHost
+                label: IPv6 DNS Hosts
+                kind: SdwanIpv6DnsHost
+                order_weight: 1060
+              - namespace: Sdwan
+                name: Ipv6StaticRoutes
+                label: IPv6 Static Routes
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EFTVTIpv6StaticRoute
+                    label: IPv6 Static Route
+                    kind: SdwanEFTVTIpv6StaticRoute
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTI6SRNextHop
+                    label: Next Hops
+                    kind: SdwanEFTVTI6SRNextHop
+                    order_weight: 1010
+                order_weight: 1070
+              - namespace: Sdwan
+                name: EFTVTNatPool
+                label: NAT Pools
+                kind: SdwanEFTVTNatPool
+                order_weight: 1080
+              - namespace: Sdwan
+                name: EFTVTNat64Pool
+                label: Nat64 Pools
+                kind: SdwanEFTVTNat64Pool
+                order_weight: 1090
+              - namespace: Sdwan
+                name: OmpAdvertiseIpv4Routes
+                label: OMP Advertise IPv4 Routes
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: OmpAdvertiseIpv4Route
+                    label: OMP Advertise IPv4 Route
+                    kind: SdwanOmpAdvertiseIpv4Route
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTOAI4RNetwork
+                    label: Networks
+                    kind: SdwanEFTVTOAI4RNetwork
+                    order_weight: 1010
+                order_weight: 1100
+              - namespace: Sdwan
+                name: OmpAdvertiseIpv6Routes
+                label: OMP Advertise IPv6 Routes
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: OmpAdvertiseIpv6Route
+                    label: OMP Advertise IPv6 Route
+                    kind: SdwanOmpAdvertiseIpv6Route
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTOAI6RNetwork
+                    label: Networks
+                    kind: SdwanEFTVTOAI6RNetwork
+                    order_weight: 1010
+                order_weight: 1110
+              - namespace: Sdwan
+                name: PortForwardingRule
+                label: Port Forwarding Rules
+                kind: SdwanPortForwardingRule
+                order_weight: 1120
+              - namespace: Sdwan
+                name: RouteGlobalExports
+                label: Route Global Exports
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: RouteGlobalExport
+                    label: Route Global Export
+                    kind: SdwanRouteGlobalExport
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTRGERedistribute
+                    label: Redistributes
+                    kind: SdwanEFTVTRGERedistribute
+                    order_weight: 1010
+                order_weight: 1130
+              - namespace: Sdwan
+                name: RouteGlobalImports
+                label: Route Global Imports
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: RouteGlobalImport
+                    label: Route Global Import
+                    kind: SdwanRouteGlobalImport
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTRGIRedistribute
+                    label: Redistributes
+                    kind: SdwanEFTVTRGIRedistribute
+                    order_weight: 1010
+                order_weight: 1140
+              - namespace: Sdwan
+                name: RouteVpnImports
+                label: Route VPN Imports
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: RouteVpnImport
+                    label: Route VPN Import
+                    kind: SdwanRouteVpnImport
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EFTVTRVIRedistribute
+                    label: Redistributes
+                    kind: SdwanEFTVTRVIRedistribute
+                    order_weight: 1010
+                order_weight: 1150
+              - namespace: Sdwan
+                name: EFTVTService
+                label: Services
+                kind: SdwanEFTVTService
+                order_weight: 1160
+              - namespace: Sdwan
+                name: StaticNatRule
+                label: Static NAT Rules
+                kind: SdwanStaticNatRule
+                order_weight: 1170
+              - namespace: Sdwan
+                name: StaticNatSubnetRule
+                label: Static NAT Subnet Rules
+                kind: SdwanStaticNatSubnetRule
+                order_weight: 1180
+            order_weight: 1240
+          - namespace: Sdwan
+            name: SecureAppHostingTemplate
+            label: Secure App Hosting Templates
+            kind: SdwanSecureAppHostingTemplate
+            order_weight: 1250
+          - namespace: Sdwan
+            name: EFTGreInterfaceTemplate
+            label: GRE Interface Templates
+            kind: SdwanEFTGreInterfaceTemplate
+            order_weight: 1260
+          - namespace: Sdwan
+            name: CellularInterfaceTemplates
+            label: Cellular Interface Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: EFTCellularInterfaceTemplat
+                label: Cellular Interface Template
+                kind: SdwanEFTCellularInterfaceTemplat
+                order_weight: 1000
+              - namespace: Sdwan
+                name: NatPortForwardingRule
+                label: NAT Port Forwarding Rules
+                kind: SdwanNatPortForwardingRule
+                order_weight: 1010
+              - namespace: Sdwan
+                name: StaticArp
+                label: Static ARPs
+                kind: SdwanStaticArp
+                order_weight: 1020
+            order_weight: 1270
+          - namespace: Sdwan
+            name: EFTCellularControllerTempla
+            label: Cellular Controller Templates
+            kind: SdwanEFTCellularControllerTempla
+            order_weight: 1280
+          - namespace: Sdwan
+            name: EFTCellularProfileTemplate
+            label: Cellular Profile Templates
+            kind: SdwanEFTCellularProfileTemplate
+            order_weight: 1290
+        order_weight: 1010
+      - namespace: Sdwan
+        name: PolicyObjects
+        label: Policy Objects
+        icon: mdi:folder
+        children:
+          data:
+          - namespace: Sdwan
+            name: AppProbeClasses
+            label: App Probe Classes
+            children:
+              data:
+              - namespace: Sdwan
+                name: POAppProbeClass
+                label: App Probe Class
+                kind: SdwanPOAppProbeClass
+                order_weight: 1000
+              - namespace: Sdwan
+                name: POAPCMapping
+                label: Mappings
+                kind: SdwanPOAPCMapping
+                order_weight: 1010
+            order_weight: 1000
+          - namespace: Sdwan
+            name: POApplicationList
+            label: Application Lists
+            kind: SdwanPOApplicationList
+            order_weight: 1010
+          - namespace: Sdwan
+            name: POAsPathList
+            label: AS Path Lists
+            kind: SdwanPOAsPathList
+            order_weight: 1020
+          - namespace: Sdwan
+            name: ClassMap
+            label: Class Maps
+            kind: SdwanClassMap
+            order_weight: 1030
+          - namespace: Sdwan
+            name: POColorList
+            label: Color Lists
+            kind: SdwanPOColorList
+            order_weight: 1040
+          - namespace: Sdwan
+            name: POExpandedCommunityList
+            label: Expanded Community Lists
+            kind: SdwanPOExpandedCommunityList
+            order_weight: 1050
+          - namespace: Sdwan
+            name: POExtendedCommunityList
+            label: Extended Community Lists
+            kind: SdwanPOExtendedCommunityList
+            order_weight: 1060
+          - namespace: Sdwan
+            name: POIpv4DataPrefixList
+            label: IPv4 Data Prefix Lists
+            kind: SdwanPOIpv4DataPrefixList
+            order_weight: 1070
+          - namespace: Sdwan
+            name: Ipv4PrefixLists
+            label: IPv4 Prefix Lists
+            children:
+              data:
+              - namespace: Sdwan
+                name: POIpv4PrefixList
+                label: IPv4 Prefix List
+                kind: SdwanPOIpv4PrefixList
+                order_weight: 1000
+              - namespace: Sdwan
+                name: POI4PLEntry
+                label: Entries
+                kind: SdwanPOI4PLEntry
+                order_weight: 1010
+            order_weight: 1080
+          - namespace: Sdwan
+            name: POIpv6DataPrefixList
+            label: IPv6 Data Prefix Lists
+            kind: SdwanPOIpv6DataPrefixList
+            order_weight: 1090
+          - namespace: Sdwan
+            name: Ipv6PrefixLists
+            label: IPv6 Prefix Lists
+            children:
+              data:
+              - namespace: Sdwan
+                name: POIpv6PrefixList
+                label: IPv6 Prefix List
+                kind: SdwanPOIpv6PrefixList
+                order_weight: 1000
+              - namespace: Sdwan
+                name: POI6PLEntry
+                label: Entries
+                kind: SdwanPOI6PLEntry
+                order_weight: 1010
+            order_weight: 1100
+          - namespace: Sdwan
+            name: MirrorList
+            label: Mirror Lists
+            kind: SdwanMirrorList
+            order_weight: 1110
+          - namespace: Sdwan
+            name: POPolicer
+            label: Policers
+            kind: SdwanPOPolicer
+            order_weight: 1120
+          - namespace: Sdwan
+            name: PortList
+            label: Port Lists
+            kind: SdwanPortList
+            order_weight: 1130
+          - namespace: Sdwan
+            name: POPreferredColorGroup
+            label: Preferred Color Groups
+            kind: SdwanPOPreferredColorGroup
+            order_weight: 1140
+          - namespace: Sdwan
+            name: RegionLists
+            label: Region Lists
+            children:
+              data:
+              - namespace: Sdwan
+                name: RegionList
+                label: Region List
+                kind: SdwanRegionList
+                order_weight: 1000
+              - namespace: Sdwan
+                name: RegionIdRange
+                label: Region Id Ranges
+                kind: SdwanRegionIdRange
+                order_weight: 1010
+            order_weight: 1150
+          - namespace: Sdwan
+            name: SiteLists
+            label: Site Lists
+            children:
+              data:
+              - namespace: Sdwan
+                name: SiteList
+                label: Site List
+                kind: SdwanSiteList
+                order_weight: 1000
+              - namespace: Sdwan
+                name: SiteIdRange
+                label: Site Id Ranges
+                kind: SdwanSiteIdRange
+                order_weight: 1010
+            order_weight: 1160
+          - namespace: Sdwan
+            name: POSlaClass
+            label: SLA Classes
+            kind: SdwanPOSlaClass
+            order_weight: 1170
+          - namespace: Sdwan
+            name: POStandardCommunityList
+            label: Standard Community Lists
+            kind: SdwanPOStandardCommunityList
+            order_weight: 1180
+          - namespace: Sdwan
+            name: TlocLists
+            label: TLOC Lists
+            children:
+              data:
+              - namespace: Sdwan
+                name: POTlocList
+                label: TLOC List
+                kind: SdwanPOTlocList
+                order_weight: 1000
+              - namespace: Sdwan
+                name: POTLTloc
+                label: TLOCs
+                kind: SdwanPOTLTloc
+                order_weight: 1010
+            order_weight: 1190
+          - namespace: Sdwan
+            name: VpnLists
+            label: VPN Lists
+            children:
+              data:
+              - namespace: Sdwan
+                name: VpnList
+                label: VPN List
+                kind: SdwanVpnList
+                order_weight: 1000
+              - namespace: Sdwan
+                name: VpnIdRange
+                label: VPN Id Ranges
+                kind: SdwanVpnIdRange
+                order_weight: 1010
+            order_weight: 1200
+          - namespace: Sdwan
+            name: POZone
+            label: Zones
+            kind: SdwanPOZone
+            order_weight: 1210
+          - namespace: Sdwan
+            name: FqdnList
+            label: FQDN Lists
+            kind: SdwanFqdnList
+            order_weight: 1220
+          - namespace: Sdwan
+            name: LocalApplicationList
+            label: Local Application Lists
+            kind: SdwanLocalApplicationList
+            order_weight: 1230
+        order_weight: 1020
+      - namespace: Sdwan
+        name: LocalizedPolicies
+        label: Localized Policies
+        icon: mdi:folder
+        children:
+          data:
+          - namespace: Sdwan
+            name: Definitions
+            label: Definitions
+            children:
+              data:
+              - namespace: Sdwan
+                name: Ipv4AccessControlLists
+                label: IPv4 Access Control Lists
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Ipv4AccessControlList
+                    label: IPv4 Access Control List
+                    kind: SdwanIpv4AccessControlList
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Sequences
+                    label: Sequences
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: LPDI4ACLSequence
+                        label: Sequence
+                        kind: SdwanLPDI4ACLSequence
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: MatchCriterias
+                        label: Match Criterias
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: SequenceMatchCriteria
+                            label: Match Criteria
+                            kind: SdwanSequenceMatchCriteria
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: LPDI4ACLSMCDestinationPortR
+                            label: Destination Port Ranges
+                            kind: SdwanLPDI4ACLSMCDestinationPortR
+                            order_weight: 1010
+                          - namespace: Sdwan
+                            name: LPDI4ACLSMCSourcePortRange
+                            label: Source Port Ranges
+                            kind: SdwanLPDI4ACLSMCSourcePortRange
+                            order_weight: 1020
+                        order_weight: 1010
+                    order_weight: 1010
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Ipv4DeviceAccessPolicies
+                label: IPv4 Device Access Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Ipv4DeviceAccessPolicy
+                    label: IPv4 Device Access Policy
+                    kind: SdwanIpv4DeviceAccessPolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: LPDI4DAPSequence
+                    label: Sequences
+                    kind: SdwanLPDI4DAPSequence
+                    order_weight: 1010
+                order_weight: 1010
+              - namespace: Sdwan
+                name: Ipv6AccessControlLists
+                label: IPv6 Access Control Lists
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Ipv6AccessControlList
+                    label: IPv6 Access Control List
+                    kind: SdwanIpv6AccessControlList
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Sequences2
+                    label: Sequences
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: LPDI6ACLSequence
+                        label: Sequence
+                        kind: SdwanLPDI6ACLSequence
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: MatchCriterias2
+                        label: Match Criterias
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: MatchCriteria
+                            label: Match Criteria
+                            kind: SdwanMatchCriteria
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: LPDI6ACLSMCDestinationPortR
+                            label: Destination Port Ranges
+                            kind: SdwanLPDI6ACLSMCDestinationPortR
+                            order_weight: 1010
+                          - namespace: Sdwan
+                            name: LPDI6ACLSMCSourcePortRange
+                            label: Source Port Ranges
+                            kind: SdwanLPDI6ACLSMCSourcePortRange
+                            order_weight: 1020
+                        order_weight: 1010
+                    order_weight: 1010
+                order_weight: 1020
+              - namespace: Sdwan
+                name: Ipv6DeviceAccessPolicies
+                label: IPv6 Device Access Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Ipv6DeviceAccessPolicy
+                    label: IPv6 Device Access Policy
+                    kind: SdwanIpv6DeviceAccessPolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: LPDI6DAPSequence
+                    label: Sequences
+                    kind: SdwanLPDI6DAPSequence
+                    order_weight: 1010
+                order_weight: 1030
+              - namespace: Sdwan
+                name: RewriteRules
+                label: Rewrite Rules
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: RewriteRule
+                    label: Rewrite Rule
+                    kind: SdwanRewriteRule
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: LPDRRRule
+                    label: Rules
+                    kind: SdwanLPDRRRule
+                    order_weight: 1010
+                order_weight: 1040
+              - namespace: Sdwan
+                name: RoutePolicies
+                label: Route Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: LPDRoutePolicy
+                    label: Route Policy
+                    kind: SdwanLPDRoutePolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: LPDRPSequence
+                    label: Sequences
+                    kind: SdwanLPDRPSequence
+                    order_weight: 1010
+                order_weight: 1050
+              - namespace: Sdwan
+                name: QosMaps
+                label: QOS Maps
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: QosMap
+                    label: QOS Map
+                    kind: SdwanQosMap
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: LPDQMQosScheduler
+                    label: QOS Schedulers
+                    kind: SdwanLPDQMQosScheduler
+                    order_weight: 1010
+                order_weight: 1060
+            order_weight: 1000
+          - namespace: Sdwan
+            name: LPFeaturePolicy
+            label: Feature Policies
+            kind: SdwanLPFeaturePolicy
+            order_weight: 1010
+        order_weight: 1030
+      - namespace: Sdwan
+        name: EdgeDeviceTemplates
+        label: Edge Device Templates
+        children:
+          data:
+          - namespace: Sdwan
+            name: EdgeDeviceTemplate
+            label: Edge Device Template
+            kind: SdwanEdgeDeviceTemplate
+            order_weight: 1000
+          - namespace: Sdwan
+            name: Vpn0Template
+            label: VPN 0 Template
+            children:
+              data:
+              - namespace: Sdwan
+                name: EdgeDeviceTemplateVpn0Templ
+                label: VPN 0 Template
+                kind: SdwanEdgeDeviceTemplateVpn0Templ
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EDTV0TEthernetInterfaceTemp
+                label: Ethernet Interface Templates
+                kind: SdwanEDTV0TEthernetInterfaceTemp
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EDTV0TIpsecInterfaceTemplat
+                label: IPSEC Interface Templates
+                kind: SdwanEDTV0TIpsecInterfaceTemplat
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EDTV0TSviInterfaceTemplate
+                label: SVI Interface Templates
+                kind: SdwanEDTV0TSviInterfaceTemplate
+                order_weight: 1030
+              - namespace: Sdwan
+                name: EDTV0TGreInterfaceTemplate
+                label: GRE Interface Templates
+                kind: SdwanEDTV0TGreInterfaceTemplate
+                order_weight: 1040
+              - namespace: Sdwan
+                name: EDTV0TCellularInterfaceTemp
+                label: Cellular Interface Templates
+                kind: SdwanEDTV0TCellularInterfaceTemp
+                order_weight: 1050
+            order_weight: 1010
+          - namespace: Sdwan
+            name: Vpn512Template
+            label: VPN 512 Template
+            children:
+              data:
+              - namespace: Sdwan
+                name: EdgeDeviceTemplateVpn512Tem
+                label: VPN 512 Template
+                kind: SdwanEdgeDeviceTemplateVpn512Tem
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EDTV5TEthernetInterfaceTemp
+                label: Ethernet Interface Templates
+                kind: SdwanEDTV5TEthernetInterfaceTemp
+                order_weight: 1010
+              - namespace: Sdwan
+                name: EDTV5TSviInterfaceTemplate
+                label: SVI Interface Templates
+                kind: SdwanEDTV5TSviInterfaceTemplate
+                order_weight: 1020
+            order_weight: 1020
+          - namespace: Sdwan
+            name: VpnServiceTemplates
+            label: VPN Service Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: VpnServiceTemplate
+                label: VPN Service Template
+                kind: SdwanVpnServiceTemplate
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EDTVSTEthernetInterfaceTemp
+                label: Ethernet Interface Templates
+                kind: SdwanEDTVSTEthernetInterfaceTemp
+                order_weight: 1010
+              - namespace: Sdwan
+                name: IpsecInterfaceTemplate
+                label: IPSEC Interface Templates
+                kind: SdwanIpsecInterfaceTemplate
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EDTVSTSviInterfaceTemplate
+                label: SVI Interface Templates
+                kind: SdwanEDTVSTSviInterfaceTemplate
+                order_weight: 1030
+            order_weight: 1030
+          - namespace: Sdwan
+            name: CellularControllerTemplates
+            label: Cellular Controller Templates
+            children:
+              data:
+              - namespace: Sdwan
+                name: EDTCellularControllerTempla
+                label: Cellular Controller Template
+                kind: SdwanEDTCellularControllerTempla
+                order_weight: 1000
+              - namespace: Sdwan
+                name: EDTCCTCellularProfileTempla
+                label: Cellular Profile Templates
+                kind: SdwanEDTCCTCellularProfileTempla
+                order_weight: 1010
+            order_weight: 1040
+          - namespace: Sdwan
+            name: EDTSwitchportTemplate
+            label: Switchport Templates
+            kind: SdwanEDTSwitchportTemplate
+            order_weight: 1050
+        icon: mdi:folder
+        order_weight: 1040
+      - namespace: Sdwan
+        name: Sites
+        label: Sites
+        children:
+          data:
+          - namespace: Sdwan
+            name: Site
+            label: Site
+            kind: SdwanSite
+            order_weight: 1000
+          - namespace: Sdwan
+            name: Router
+            label: Routers
+            kind: SdwanRouter
+            order_weight: 1010
+        icon: mdi:folder
+        order_weight: 1050
+      - namespace: Sdwan
+        name: CentralizedPolicies
+        label: Centralized Policies
+        children:
+          data:
+          - namespace: Sdwan
+            name: InstanceCentralizedPolicy
+            label: Centralized Policy
+            kind: SdwanInstanceCentralizedPolicy
+            order_weight: 1000
+          - namespace: Sdwan
+            name: Definitions2
+            label: Definitions
+            children:
+              data:
+              - namespace: Sdwan
+                name: ControlPolicy
+                label: Control Policy
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: HubAndSpokeTopology
+                    label: Hub And Spoke Topology
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDCPHubAndSpokeTopology
+                        label: Hub And Spoke Topology
+                        kind: SdwanCPDCPHubAndSpokeTopology
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: HubAndSpokeSites
+                        label: Hub And Spoke Sites
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: HubAndSpokeSite
+                            label: Hub And Spoke Site
+                            kind: SdwanHubAndSpokeSite
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: Spokes
+                            label: Spokes
+                            children:
+                              data:
+                              - namespace: Sdwan
+                                name: Spoke
+                                label: Spoke
+                                kind: SdwanSpoke
+                                order_weight: 1000
+                              - namespace: Sdwan
+                                name: Hub
+                                label: Hubs
+                                kind: SdwanHub
+                                order_weight: 1010
+                            order_weight: 1010
+                        order_weight: 1010
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: MeshTopology
+                    label: Mesh Topology
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDCPMeshTopology
+                        label: Mesh Topology
+                        kind: SdwanCPDCPMeshTopology
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: MeshGroup
+                        label: Mesh Groups
+                        kind: SdwanMeshGroup
+                        order_weight: 1010
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: CustomControlTopology
+                    label: Custom Control Topology
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDCPCustomControlTopology
+                        label: Custom Control Topology
+                        kind: SdwanCPDCPCustomControlTopology
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: CPDCPCCTSequence
+                        label: Sequences
+                        kind: SdwanCPDCPCCTSequence
+                        order_weight: 1010
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: VpnMembership
+                    label: VPN Membership
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDCPVpnMembership
+                        label: VPN Membership
+                        kind: SdwanCPDCPVpnMembership
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: CPDCPVMGroup
+                        label: Groups
+                        kind: SdwanCPDCPVMGroup
+                        order_weight: 1010
+                    order_weight: 1030
+                order_weight: 1000
+              - namespace: Sdwan
+                name: DataPolicy
+                label: Data Policy
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: ApplicationAwareRouting
+                    label: Application Aware Routing
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDDPApplicationAwareRoutin
+                        label: Application Aware Routing
+                        kind: SdwanCPDDPApplicationAwareRoutin
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: Sequences3
+                        label: Sequences
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: CPDDPAARSequence
+                            label: Sequence
+                            kind: SdwanCPDDPAARSequence
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: MatchCriterias3
+                            label: Match Criterias
+                            children:
+                              data:
+                              - namespace: Sdwan
+                                name: MatchCriteria2
+                                label: Match Criteria
+                                kind: SdwanMatchCriteria2
+                                order_weight: 1000
+                              - namespace: Sdwan
+                                name: CPDDPAARSMCSourcePortRange
+                                label: Source Port Ranges
+                                kind: SdwanCPDDPAARSMCSourcePortRange
+                                order_weight: 1010
+                              - namespace: Sdwan
+                                name: CPDDPAARSMCDestinationPortR
+                                label: Destination Port Ranges
+                                kind: SdwanCPDDPAARSMCDestinationPortR
+                                order_weight: 1020
+                            order_weight: 1010
+                        order_weight: 1010
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: TrafficData
+                    label: Traffic Data
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDDPTrafficData
+                        label: Traffic Data
+                        kind: SdwanCPDDPTrafficData
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: Sequences4
+                        label: Sequences
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: CPDDPTDSequence
+                            label: Sequence
+                            kind: SdwanCPDDPTDSequence
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: MatchCriterias4
+                            label: Match Criterias
+                            children:
+                              data:
+                              - namespace: Sdwan
+                                name: CPDDPTDSequenceMatchCriteri
+                                label: Match Criteria
+                                kind: SdwanCPDDPTDSequenceMatchCriteri
+                                order_weight: 1000
+                              - namespace: Sdwan
+                                name: CPDDPTDSMCSourcePortRange
+                                label: Source Port Ranges
+                                kind: SdwanCPDDPTDSMCSourcePortRange
+                                order_weight: 1010
+                              - namespace: Sdwan
+                                name: CPDDPTDSMCDestinationPortRa
+                                label: Destination Port Ranges
+                                kind: SdwanCPDDPTDSMCDestinationPortRa
+                                order_weight: 1020
+                            order_weight: 1010
+                        order_weight: 1010
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Cflowd
+                    label: Cflowd
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: CPDDPCflowd
+                        label: Cflowd
+                        kind: SdwanCPDDPCflowd
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: Collector
+                        label: Collectors
+                        kind: SdwanCollector
+                        order_weight: 1010
+                    order_weight: 1020
+                order_weight: 1010
+            order_weight: 1010
+          - namespace: Sdwan
+            name: FeaturePolicies
+            label: Feature Policies
+            children:
+              data:
+              - namespace: Sdwan
+                name: CPFeaturePolicy
+                label: Feature Policy
+                kind: SdwanCPFeaturePolicy
+                order_weight: 1000
+              - namespace: Sdwan
+                name: CPFPHubAndSpokeTopology
+                label: Hub And Spoke Topology
+                kind: SdwanCPFPHubAndSpokeTopology
+                order_weight: 1010
+              - namespace: Sdwan
+                name: CPFPMeshTopology
+                label: Mesh Topology
+                kind: SdwanCPFPMeshTopology
+                order_weight: 1020
+              - namespace: Sdwan
+                name: CPFPCustomControlTopology
+                label: Custom Control Topology
+                kind: SdwanCPFPCustomControlTopology
+                order_weight: 1030
+              - namespace: Sdwan
+                name: CPFPVpnMembership
+                label: VPN Membership
+                kind: SdwanCPFPVpnMembership
+                order_weight: 1040
+              - namespace: Sdwan
+                name: CPFPApplicationAwareRouting
+                label: Application Aware Routing
+                kind: SdwanCPFPApplicationAwareRouting
+                order_weight: 1050
+              - namespace: Sdwan
+                name: TrafficData2
+                label: Traffic Data
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: CPFPTrafficData
+                    label: Traffic Data
+                    kind: SdwanCPFPTrafficData
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: SiteRegionVpn
+                    label: Site Region VPN
+                    kind: SdwanSiteRegionVpn
+                    order_weight: 1010
+                order_weight: 1060
+              - namespace: Sdwan
+                name: CPFPCflowd
+                label: Cflowd
+                kind: SdwanCPFPCflowd
+                order_weight: 1070
+            order_weight: 1020
+        icon: mdi:folder
+        order_weight: 1060
+      - namespace: Sdwan
+        name: SecurityPolicies
+        label: Security Policies
+        icon: mdi:folder
+        children:
+          data:
+          - namespace: Sdwan
+            name: Definitions3
+            label: Definitions
+            children:
+              data:
+              - namespace: Sdwan
+                name: ZoneBasedFirewall2
+                label: Zone Based Firewall
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: ZoneBasedFirewall
+                    label: Zone Based Firewall
+                    kind: SdwanZoneBasedFirewall
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Rules
+                    label: Rules
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: SPDZBFRule
+                        label: Rule
+                        kind: SdwanSPDZBFRule
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: MatchCriterias5
+                        label: Match Criterias
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: SPDZBFRuleMatchCriteria
+                            label: Match Criteria
+                            kind: SdwanSPDZBFRuleMatchCriteria
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: SourcePortRange
+                            label: Source Port Ranges
+                            kind: SdwanSourcePortRange
+                            order_weight: 1010
+                          - namespace: Sdwan
+                            name: DestinationPortRange
+                            label: Destination Port Ranges
+                            kind: SdwanDestinationPortRange
+                            order_weight: 1020
+                        order_weight: 1010
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: ZonePair
+                    label: Zone Pairs
+                    kind: SdwanZonePair
+                    order_weight: 1020
+                order_weight: 1000
+              - namespace: Sdwan
+                name: IntrusionPrevention
+                label: Intrusion Prevention
+                kind: SdwanIntrusionPrevention
+                order_weight: 1010
+            order_weight: 1000
+          - namespace: Sdwan
+            name: FeaturePolicies2
+            label: Feature Policies
+            children:
+              data:
+              - namespace: Sdwan
+                name: FeaturePolicy
+                label: Feature Policy
+                kind: SdwanFeaturePolicy
+                order_weight: 1000
+              - namespace: Sdwan
+                name: UnifiedFirewallPolicies
+                label: Unified Firewall Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: UnifiedFirewallPolicy
+                    label: Unified Firewall Policy
+                    kind: SdwanUnifiedFirewallPolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: SPFPUFPZone
+                    label: Zones
+                    kind: SdwanSPFPUFPZone
+                    order_weight: 1010
+                order_weight: 1010
+              - namespace: Sdwan
+                name: AdditionalSettings
+                label: Additional Settings
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: AdditionalSettingFirewall
+                    label: Firewall
+                    kind: SdwanAdditionalSettingFirewall
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: AdditionalSettingIpsUrlAmp
+                    label: IPS URL AMP
+                    kind: SdwanAdditionalSettingIpsUrlAmp
+                    order_weight: 1010
+                order_weight: 1020
+            order_weight: 1010
+        order_weight: 1070
+      - namespace: Sdwan
+        name: ConfigurationGroups
+        label: Configuration Groups
+        children:
+          data:
+          - namespace: Sdwan
+            name: ConfigurationGroup
+            label: Configuration Group
+            kind: SdwanConfigurationGroup
+            order_weight: 1000
+          - namespace: Sdwan
+            name: DeviceTag
+            label: Device Tags
+            kind: SdwanDeviceTag
+            order_weight: 1010
+        icon: mdi:folder
+        order_weight: 1080
+      - namespace: Sdwan
+        name: FeatureProfiles
+        label: Feature Profiles
+        icon: mdi:folder
+        children:
+          data:
+          - namespace: Sdwan
+            name: ApplicationPriorityProfiles
+            label: Application Priority Profiles
+            children:
+              data:
+              - namespace: Sdwan
+                name: ApplicationPriorityProfile
+                label: Application Priority Profile
+                kind: SdwanApplicationPriorityProfile
+                order_weight: 1000
+              - namespace: Sdwan
+                name: QosPolicies
+                label: QOS Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: QosPolicy
+                    label: QOS Policy
+                    kind: SdwanQosPolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPAPPQPQosScheduler
+                    label: QOS Schedulers
+                    kind: SdwanFPAPPQPQosScheduler
+                    order_weight: 1010
+                order_weight: 1010
+              - namespace: Sdwan
+                name: TrafficPolicies
+                label: Traffic Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: TrafficPolicy
+                    label: Traffic Policy
+                    kind: SdwanTrafficPolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPAPPTPSequence
+                    label: Sequences
+                    kind: SdwanFPAPPTPSequence
+                    order_weight: 1010
+                order_weight: 1020
+            order_weight: 1000
+          - namespace: Sdwan
+            name: CliProfile
+            label: CLI Profiles
+            kind: SdwanCliProfile
+            order_weight: 1010
+          - namespace: Sdwan
+            name: NgfwSecurityProfiles
+            label: NGFW Security Profiles
+            children:
+              data:
+              - namespace: Sdwan
+                name: NgfwSecurityProfile
+                label: NGFW Security Profile
+                kind: SdwanNgfwSecurityProfile
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Policies
+                label: Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Policy
+                    label: Policy
+                    kind: SdwanPolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPNSPPSequence
+                    label: Sequences
+                    kind: SdwanFPNSPPSequence
+                    order_weight: 1010
+                order_weight: 1010
+            order_weight: 1020
+          - namespace: Sdwan
+            name: OtherProfiles
+            label: Other Profiles
+            children:
+              data:
+              - namespace: Sdwan
+                name: OtherProfile
+                label: Other Profile
+                kind: SdwanOtherProfile
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Ucse
+                label: Ucse
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: OtherProfileUcse
+                    label: Ucse
+                    kind: SdwanOtherProfileUcse
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPOPUInterface
+                    label: Interfaces
+                    kind: SdwanFPOPUInterface
+                    order_weight: 1010
+                order_weight: 1010
+            order_weight: 1030
+          - namespace: Sdwan
+            name: PolicyObjectProfile
+            label: Policy Object Profile
+            children:
+              data:
+              - namespace: Sdwan
+                name: FeatureProfilePolicyObjectP
+                label: Policy Object Profile
+                kind: SdwanFeatureProfilePolicyObjectP
+                order_weight: 1000
+              - namespace: Sdwan
+                name: AppProbeClasses2
+                label: App Probe Classes
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPPOPAppProbeClass
+                    label: App Probe Class
+                    kind: SdwanFPPOPAppProbeClass
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPPOPAPCMapping
+                    label: Mappings
+                    kind: SdwanFPPOPAPCMapping
+                    order_weight: 1010
+                order_weight: 1010
+              - namespace: Sdwan
+                name: FPPOPApplicationList
+                label: Application Lists
+                kind: SdwanFPPOPApplicationList
+                order_weight: 1020
+              - namespace: Sdwan
+                name: FPPOPAsPathList
+                label: AS Path Lists
+                kind: SdwanFPPOPAsPathList
+                order_weight: 1030
+              - namespace: Sdwan
+                name: FPPOPColorList
+                label: Color Lists
+                kind: SdwanFPPOPColorList
+                order_weight: 1040
+              - namespace: Sdwan
+                name: FPPOPExpandedCommunityList
+                label: Expanded Community Lists
+                kind: SdwanFPPOPExpandedCommunityList
+                order_weight: 1050
+              - namespace: Sdwan
+                name: FPPOPExtendedCommunityList
+                label: Extended Community Lists
+                kind: SdwanFPPOPExtendedCommunityList
+                order_weight: 1060
+              - namespace: Sdwan
+                name: ForwardingClass
+                label: Forwarding Classes
+                kind: SdwanForwardingClass
+                order_weight: 1070
+              - namespace: Sdwan
+                name: FPPOPIpv4DataPrefixList
+                label: IPv4 Data Prefix Lists
+                kind: SdwanFPPOPIpv4DataPrefixList
+                order_weight: 1080
+              - namespace: Sdwan
+                name: Ipv4PrefixLists2
+                label: IPv4 Prefix Lists
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPPOPIpv4PrefixList
+                    label: IPv4 Prefix List
+                    kind: SdwanFPPOPIpv4PrefixList
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPPOPI4PLEntry
+                    label: Entries
+                    kind: SdwanFPPOPI4PLEntry
+                    order_weight: 1010
+                order_weight: 1090
+              - namespace: Sdwan
+                name: FPPOPIpv6DataPrefixList
+                label: IPv6 Data Prefix Lists
+                kind: SdwanFPPOPIpv6DataPrefixList
+                order_weight: 1100
+              - namespace: Sdwan
+                name: Ipv6PrefixLists2
+                label: IPv6 Prefix Lists
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPPOPIpv6PrefixList
+                    label: IPv6 Prefix List
+                    kind: SdwanFPPOPIpv6PrefixList
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPPOPI6PLEntry
+                    label: Entries
+                    kind: SdwanFPPOPI6PLEntry
+                    order_weight: 1010
+                order_weight: 1110
+              - namespace: Sdwan
+                name: Mirror
+                label: Mirrors
+                kind: SdwanMirror
+                order_weight: 1120
+              - namespace: Sdwan
+                name: FPPOPPolicer
+                label: Policers
+                kind: SdwanFPPOPPolicer
+                order_weight: 1130
+              - namespace: Sdwan
+                name: FPPOPPreferredColorGroup
+                label: Preferred Color Groups
+                kind: SdwanFPPOPPreferredColorGroup
+                order_weight: 1140
+              - namespace: Sdwan
+                name: SecurityAdvancedInspection2
+                label: Security Advanced Inspection Profiles
+                kind: SdwanSecurityAdvancedInspection2
+                order_weight: 1150
+              - namespace: Sdwan
+                name: SecurityAdvancedMalwarePro2
+                label: Security Advanced Malware Protection Profiles
+                kind: SdwanSecurityAdvancedMalwarePro2
+                order_weight: 1160
+              - namespace: Sdwan
+                name: SecurityDataIpv4PrefixList
+                label: Security Data IPv4 Prefix Lists
+                kind: SdwanSecurityDataIpv4PrefixList
+                order_weight: 1170
+              - namespace: Sdwan
+                name: SecurityFqdnList
+                label: Security FQDN Lists
+                kind: SdwanSecurityFqdnList
+                order_weight: 1180
+              - namespace: Sdwan
+                name: SecurityGeoLocationList
+                label: Security Geo Location Lists
+                kind: SdwanSecurityGeoLocationList
+                order_weight: 1190
+              - namespace: Sdwan
+                name: SecurityIntrusionPreventio2
+                label: Security Intrusion Prevention Profiles
+                kind: SdwanSecurityIntrusionPreventio2
+                order_weight: 1200
+              - namespace: Sdwan
+                name: SecurityIpsSignatureLists
+                label: Security IPS Signature Lists
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SecurityIpsSignatureList
+                    label: Security IPS Signature List
+                    kind: SdwanSecurityIpsSignatureList
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Entry
+                    label: Entries
+                    kind: SdwanEntry
+                    order_weight: 1010
+                order_weight: 1210
+              - namespace: Sdwan
+                name: SecurityLocalApplicationLi2
+                label: Security Local Application Lists
+                kind: SdwanSecurityLocalApplicationLi2
+                order_weight: 1220
+              - namespace: Sdwan
+                name: SecurityPortList
+                label: Security Port Lists
+                kind: SdwanSecurityPortList
+                order_weight: 1230
+              - namespace: Sdwan
+                name: SecurityProtocolList
+                label: Security Protocol Lists
+                kind: SdwanSecurityProtocolList
+                order_weight: 1240
+              - namespace: Sdwan
+                name: SecurityUrlAllowList
+                label: Security URL Allow Lists
+                kind: SdwanSecurityUrlAllowList
+                order_weight: 1250
+              - namespace: Sdwan
+                name: SecurityUrlBlockList
+                label: Security URL Block Lists
+                kind: SdwanSecurityUrlBlockList
+                order_weight: 1260
+              - namespace: Sdwan
+                name: SecurityUrlFilteringProfile
+                label: Security URL Filtering Profiles
+                kind: SdwanSecurityUrlFilteringProfile
+                order_weight: 1270
+              - namespace: Sdwan
+                name: SecurityZone
+                label: Security Zones
+                kind: SdwanSecurityZone
+                order_weight: 1280
+              - namespace: Sdwan
+                name: FPPOPSlaClass
+                label: SLA Classes
+                kind: SdwanFPPOPSlaClass
+                order_weight: 1290
+              - namespace: Sdwan
+                name: FPPOPStandardCommunityList
+                label: Standard Community Lists
+                kind: SdwanFPPOPStandardCommunityList
+                order_weight: 1300
+              - namespace: Sdwan
+                name: TlocLists2
+                label: TLOC Lists
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPPOPTlocList
+                    label: TLOC List
+                    kind: SdwanFPPOPTlocList
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPPOPTLTloc
+                    label: TLOCs
+                    kind: SdwanFPPOPTLTloc
+                    order_weight: 1010
+                order_weight: 1310
+            order_weight: 1040
+          - namespace: Sdwan
+            name: ServiceProfiles
+            label: Service Profiles
+            children:
+              data:
+              - namespace: Sdwan
+                name: ServiceProfile
+                label: Service Profile
+                kind: SdwanServiceProfile
+                order_weight: 1000
+              - namespace: Sdwan
+                name: BgpFeatures
+                label: BGP Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPSPBgpFeature
+                    label: BGP Feature
+                    kind: SdwanFPSPBgpFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPBFIpv4AggregateAddress
+                    label: IPv4 Aggregate Addresses
+                    kind: SdwanFPSPBFIpv4AggregateAddress
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Ipv4Neighbors
+                    label: IPv4 Neighbors
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPBFIpv4Neighbor
+                        label: IPv4 Neighbor
+                        kind: SdwanFPSPBFIpv4Neighbor
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPBFI4NAddressFamily
+                        label: Address Families
+                        kind: SdwanFPSPBFI4NAddressFamily
+                        order_weight: 1010
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: FPSPBFIpv4Network
+                    label: IPv4 Networks
+                    kind: SdwanFPSPBFIpv4Network
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: FPSPBFIpv4Redistribute
+                    label: IPv4 Redistributes
+                    kind: SdwanFPSPBFIpv4Redistribute
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: FPSPBFIpv6AggregateAddress
+                    label: IPv6 Aggregate Addresses
+                    kind: SdwanFPSPBFIpv6AggregateAddress
+                    order_weight: 1050
+                  - namespace: Sdwan
+                    name: Ipv6Neighbors
+                    label: IPv6 Neighbors
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPBFIpv6Neighbor
+                        label: IPv6 Neighbor
+                        kind: SdwanFPSPBFIpv6Neighbor
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPBFI6NAddressFamily
+                        label: Address Families
+                        kind: SdwanFPSPBFI6NAddressFamily
+                        order_weight: 1010
+                    order_weight: 1060
+                  - namespace: Sdwan
+                    name: FPSPBFIpv6Network
+                    label: IPv6 Networks
+                    kind: SdwanFPSPBFIpv6Network
+                    order_weight: 1070
+                  - namespace: Sdwan
+                    name: FPSPBFIpv6Redistribute
+                    label: IPv6 Redistributes
+                    kind: SdwanFPSPBFIpv6Redistribute
+                    order_weight: 1080
+                order_weight: 1010
+              - namespace: Sdwan
+                name: DhcpServers
+                label: DHCP Servers
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: DhcpServer
+                    label: DHCP Server
+                    kind: SdwanDhcpServer
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPDSOption
+                    label: Options
+                    kind: SdwanFPSPDSOption
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPDSStaticLease
+                    label: Static Leases
+                    kind: SdwanFPSPDSStaticLease
+                    order_weight: 1020
+                order_weight: 1020
+              - namespace: Sdwan
+                name: EigrpFeatures
+                label: EIGRP Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: EigrpFeature
+                    label: EIGRP Feature
+                    kind: SdwanEigrpFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Interfaces3
+                    label: Interfaces
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPEFInterface
+                        label: Interface
+                        kind: SdwanFPSPEFInterface
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: SummaryAddress
+                        label: Summary Addresses
+                        kind: SdwanSummaryAddress
+                        order_weight: 1010
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Md5Key
+                    label: Md5 Keys
+                    kind: SdwanMd5Key
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: FPSPEFNetwork
+                    label: Networks
+                    kind: SdwanFPSPEFNetwork
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: FPSPEFRedistribute
+                    label: Redistributes
+                    kind: SdwanFPSPEFRedistribute
+                    order_weight: 1040
+                order_weight: 1030
+              - namespace: Sdwan
+                name: Ipv4Acls
+                label: IPv4 ACLs
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPSPIpv4Acl
+                    label: IPv4 ACL
+                    kind: SdwanFPSPIpv4Acl
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPI4ASequence
+                    label: Sequences
+                    kind: SdwanFPSPI4ASequence
+                    order_weight: 1010
+                order_weight: 1040
+              - namespace: Sdwan
+                name: FPSPIpv4TrackerGroup
+                label: IPv4 Tracker Groups
+                kind: SdwanFPSPIpv4TrackerGroup
+                order_weight: 1050
+              - namespace: Sdwan
+                name: FPSPIpv4Tracker
+                label: IPv4 Trackers
+                kind: SdwanFPSPIpv4Tracker
+                order_weight: 1060
+              - namespace: Sdwan
+                name: Ipv6Acls
+                label: IPv6 ACLs
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPSPIpv6Acl
+                    label: IPv6 ACL
+                    kind: SdwanFPSPIpv6Acl
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPI6ASequence
+                    label: Sequences
+                    kind: SdwanFPSPI6ASequence
+                    order_weight: 1010
+                order_weight: 1070
+              - namespace: Sdwan
+                name: LanVpns
+                label: LAN VPNs
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: LanVpn
+                    label: LAN VPN
+                    kind: SdwanLanVpn
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EthernetInterfaces
+                    label: Ethernet Interfaces
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPLVEthernetInterface
+                        label: Ethernet Interface
+                        kind: SdwanFPSPLVEthernetInterface
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVEIArpEntry
+                        label: ARP Entries
+                        kind: SdwanFPSPLVEIArpEntry
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPSPLVEIIpv4SecondaryAddres
+                        label: IPv4 Secondary Addresses
+                        kind: SdwanFPSPLVEIIpv4SecondaryAddres
+                        order_weight: 1020
+                      - namespace: Sdwan
+                        name: Ipv4VrrpGroups3
+                        label: IPv4 VRRP Groups
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: FPSPLVEIIpv4VrrpGroup
+                            label: IPv4 VRRP Group
+                            kind: SdwanFPSPLVEIIpv4VrrpGroup
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: FPSPLVEII4VGSecondaryAddres
+                            label: Secondary Addresses
+                            kind: SdwanFPSPLVEII4VGSecondaryAddres
+                            order_weight: 1010
+                          - namespace: Sdwan
+                            name: FPSPLVEII4VGTrackingObject
+                            label: Tracking Objects
+                            kind: SdwanFPSPLVEII4VGTrackingObject
+                            order_weight: 1020
+                        order_weight: 1030
+                      - namespace: Sdwan
+                        name: FPSPLVEIIpv6DhcpHelper
+                        label: IPv6 DHCP Helpers
+                        kind: SdwanFPSPLVEIIpv6DhcpHelper
+                        order_weight: 1040
+                      - namespace: Sdwan
+                        name: FPSPLVEIIpv6DynamicSecondar
+                        label: IPv6 Dynamic Secondary Addresses
+                        kind: SdwanFPSPLVEIIpv6DynamicSecondar
+                        order_weight: 1050
+                      - namespace: Sdwan
+                        name: FPSPLVEIIpv6StaticSecondary
+                        label: IPv6 Static Secondary Addresses
+                        kind: SdwanFPSPLVEIIpv6StaticSecondary
+                        order_weight: 1060
+                      - namespace: Sdwan
+                        name: FPSPLVEIIpv6VrrpGroup
+                        label: IPv6 VRRP Groups
+                        kind: SdwanFPSPLVEIIpv6VrrpGroup
+                        order_weight: 1070
+                      - namespace: Sdwan
+                        name: FPSPLVEIPortChannelMemberLi
+                        label: Port Channel Member Links
+                        kind: SdwanFPSPLVEIPortChannelMemberLi
+                        order_weight: 1080
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPLVGreInterface
+                    label: GRE Interfaces
+                    kind: SdwanFPSPLVGreInterface
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: GreRoute
+                    label: GRE Routes
+                    kind: SdwanGreRoute
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: FPSPLVHostMapping
+                    label: Host Mappings
+                    kind: SdwanFPSPLVHostMapping
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: FPSPLVIpsecInterface
+                    label: IPSEC Interfaces
+                    kind: SdwanFPSPLVIpsecInterface
+                    order_weight: 1050
+                  - namespace: Sdwan
+                    name: IpsecRoute
+                    label: IPSEC Routes
+                    kind: SdwanIpsecRoute
+                    order_weight: 1060
+                  - namespace: Sdwan
+                    name: Ipv4ExportRouteTarget
+                    label: IPv4 Export Route Targets
+                    kind: SdwanIpv4ExportRouteTarget
+                    order_weight: 1070
+                  - namespace: Sdwan
+                    name: Ipv4ImportRouteTarget
+                    label: IPv4 Import Route Targets
+                    kind: SdwanIpv4ImportRouteTarget
+                    order_weight: 1080
+                  - namespace: Sdwan
+                    name: Ipv4OmpAdvertiseRoutes
+                    label: IPv4 OMP Advertise Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: Ipv4OmpAdvertiseRoute
+                        label: IPv4 OMP Advertise Route
+                        kind: SdwanIpv4OmpAdvertiseRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVI4OARAggregate
+                        label: Aggregates
+                        kind: SdwanFPSPLVI4OARAggregate
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPSPLVI4OARNetwork
+                        label: Networks
+                        kind: SdwanFPSPLVI4OARNetwork
+                        order_weight: 1020
+                    order_weight: 1090
+                  - namespace: Sdwan
+                    name: Ipv4StaticRoutes2
+                    label: IPv4 Static Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPLVIpv4StaticRoute
+                        label: IPv4 Static Route
+                        kind: SdwanFPSPLVIpv4StaticRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVI4SRNextHop
+                        label: Next Hops
+                        kind: SdwanFPSPLVI4SRNextHop
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: NextHopsWithTracker
+                        label: Next Hops With Tracker
+                        kind: SdwanNextHopsWithTracker
+                        order_weight: 1020
+                      - namespace: Sdwan
+                        name: StaticRouteInterface
+                        label: Static Route Interface
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: FPSPLVIpv4StaticRouteStatic
+                            label: Static Route Interface
+                            kind: SdwanFPSPLVIpv4StaticRouteStatic
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: FPSPLVI4SRSRINextHop
+                            label: Next Hops
+                            kind: SdwanFPSPLVI4SRSRINextHop
+                            order_weight: 1010
+                        order_weight: 1030
+                    order_weight: 1100
+                  - namespace: Sdwan
+                    name: Ipv6ImportRouteTarget
+                    label: IPv6 Import Route Targets
+                    kind: SdwanIpv6ImportRouteTarget
+                    order_weight: 1110
+                  - namespace: Sdwan
+                    name: Ipv6ExportRouteTarget
+                    label: IPv6 Export Route Targets
+                    kind: SdwanIpv6ExportRouteTarget
+                    order_weight: 1120
+                  - namespace: Sdwan
+                    name: Ipv6OmpAdvertiseRoutes
+                    label: IPv6 OMP Advertise Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: Ipv6OmpAdvertiseRoute
+                        label: IPv6 OMP Advertise Route
+                        kind: SdwanIpv6OmpAdvertiseRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVI6OARAggregate
+                        label: Aggregates
+                        kind: SdwanFPSPLVI6OARAggregate
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: Network
+                        label: Networks
+                        kind: SdwanNetwork
+                        order_weight: 1020
+                    order_weight: 1130
+                  - namespace: Sdwan
+                    name: Ipv6StaticRoutes2
+                    label: IPv6 Static Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPLVIpv6StaticRoute
+                        label: IPv6 Static Route
+                        kind: SdwanFPSPLVIpv6StaticRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVI6SRNextHop
+                        label: Next Hops
+                        kind: SdwanFPSPLVI6SRNextHop
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: StaticRouteInterface2
+                        label: Static Route Interface
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: FPSPLVIpv6StaticRouteStatic
+                            label: Static Route Interface
+                            kind: SdwanFPSPLVIpv6StaticRouteStatic
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: FPSPLVI6SRSRINextHop
+                            label: Next Hops
+                            kind: SdwanFPSPLVI6SRSRINextHop
+                            order_weight: 1010
+                        order_weight: 1020
+                    order_weight: 1140
+                  - namespace: Sdwan
+                    name: FPSPLVNatPool
+                    label: NAT Pools
+                    kind: SdwanFPSPLVNatPool
+                    order_weight: 1150
+                  - namespace: Sdwan
+                    name: NatPortForward
+                    label: NAT Port Forwards
+                    kind: SdwanNatPortForward
+                    order_weight: 1160
+                  - namespace: Sdwan
+                    name: FPSPLVNat64Pool
+                    label: Nat64 Pools
+                    kind: SdwanFPSPLVNat64Pool
+                    order_weight: 1170
+                  - namespace: Sdwan
+                    name: RouteLeaksFromGlobal2
+                    label: Route Leaks From Global
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: RouteLeaksFromGlobal
+                        label: Route Leaks From Global
+                        kind: SdwanRouteLeaksFromGlobal
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVRLFGRedistribution
+                        label: Redistributions
+                        kind: SdwanFPSPLVRLFGRedistribution
+                        order_weight: 1010
+                    order_weight: 1180
+                  - namespace: Sdwan
+                    name: RouteLeaksToGlobal2
+                    label: Route Leaks To Global
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: RouteLeaksToGlobal
+                        label: Route Leaks To Global
+                        kind: SdwanRouteLeaksToGlobal
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVRLTGRedistribution
+                        label: Redistributions
+                        kind: SdwanFPSPLVRLTGRedistribution
+                        order_weight: 1010
+                    order_weight: 1190
+                  - namespace: Sdwan
+                    name: RouteLeaksFromService2
+                    label: Route Leaks From Service
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: RouteLeaksFromService
+                        label: Route Leaks From Service
+                        kind: SdwanRouteLeaksFromService
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: Redistribution
+                        label: Redistributions
+                        kind: SdwanRedistribution
+                        order_weight: 1010
+                    order_weight: 1200
+                  - namespace: Sdwan
+                    name: FPSPLVService
+                    label: Services
+                    kind: SdwanFPSPLVService
+                    order_weight: 1210
+                  - namespace: Sdwan
+                    name: ServiceRoute
+                    label: Service Routes
+                    kind: SdwanServiceRoute
+                    order_weight: 1220
+                  - namespace: Sdwan
+                    name: StaticNatEntry
+                    label: Static NAT Entries
+                    kind: SdwanStaticNatEntry
+                    order_weight: 1230
+                  - namespace: Sdwan
+                    name: StaticNatSubnet
+                    label: Static NAT Subnets
+                    kind: SdwanStaticNatSubnet
+                    order_weight: 1240
+                  - namespace: Sdwan
+                    name: SviInterfaces
+                    label: SVI Interfaces
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: SviInterface
+                        label: SVI Interface
+                        kind: SdwanSviInterface
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPLVSIArpEntry
+                        label: ARP Entries
+                        kind: SdwanFPSPLVSIArpEntry
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPSPLVSIIpv4SecondaryAddres
+                        label: IPv4 Secondary Addresses
+                        kind: SdwanFPSPLVSIIpv4SecondaryAddres
+                        order_weight: 1020
+                      - namespace: Sdwan
+                        name: Ipv4VrrpGroups4
+                        label: IPv4 VRRP Groups
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: FPSPLVSIIpv4VrrpGroup
+                            label: IPv4 VRRP Group
+                            kind: SdwanFPSPLVSIIpv4VrrpGroup
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: SecondaryAddress
+                            label: Secondary Addresses
+                            kind: SdwanSecondaryAddress
+                            order_weight: 1010
+                          - namespace: Sdwan
+                            name: FPSPLVSII4VGTrackingObject
+                            label: Tracking Objects
+                            kind: SdwanFPSPLVSII4VGTrackingObject
+                            order_weight: 1020
+                        order_weight: 1030
+                      - namespace: Sdwan
+                        name: FPSPLVSIIpv6DhcpHelper
+                        label: IPv6 DHCP Helpers
+                        kind: SdwanFPSPLVSIIpv6DhcpHelper
+                        order_weight: 1040
+                      - namespace: Sdwan
+                        name: Ipv6SecondaryAddress
+                        label: IPv6 Secondary Addresses
+                        kind: SdwanIpv6SecondaryAddress
+                        order_weight: 1050
+                      - namespace: Sdwan
+                        name: Ipv6VrrpGroups2
+                        label: IPv6 VRRP Groups
+                        children:
+                          data:
+                          - namespace: Sdwan
+                            name: FPSPLVSIIpv6VrrpGroup
+                            label: IPv6 VRRP Group
+                            kind: SdwanFPSPLVSIIpv6VrrpGroup
+                            order_weight: 1000
+                          - namespace: Sdwan
+                            name: Address
+                            label: Addresses
+                            kind: SdwanAddress
+                            order_weight: 1010
+                        order_weight: 1060
+                    order_weight: 1250
+                order_weight: 1080
+              - namespace: Sdwan
+                name: MulticastFeatures
+                label: Multicast Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: MulticastFeature
+                    label: Multicast Feature
+                    kind: SdwanMulticastFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: AutoRpAnnounce
+                    label: Auto RP Announces
+                    kind: SdwanAutoRpAnnounce
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: AutoRpDiscovery
+                    label: Auto RP Discoveries
+                    kind: SdwanAutoRpDiscovery
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: IgmpInterfaces
+                    label: IGMP Interfaces
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: IgmpInterface
+                        label: IGMP Interface
+                        kind: SdwanIgmpInterface
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPMFIIJoinGroup
+                        label: Join Groups
+                        kind: SdwanFPSPMFIIJoinGroup
+                        order_weight: 1010
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: MsdpMeshGroups
+                    label: Msdp Mesh Groups
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: MsdpMeshGroup
+                        label: Msdp Mesh Group
+                        kind: SdwanMsdpMeshGroup
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: Peer
+                        label: Peers
+                        kind: SdwanPeer
+                        order_weight: 1010
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: PimBsrCandidate
+                    label: PIM Bsr Candidates
+                    kind: SdwanPimBsrCandidate
+                    order_weight: 1050
+                  - namespace: Sdwan
+                    name: PimBsrRpCandidate
+                    label: PIM Bsr RP Candidates
+                    kind: SdwanPimBsrRpCandidate
+                    order_weight: 1060
+                  - namespace: Sdwan
+                    name: PimInterface
+                    label: PIM Interfaces
+                    kind: SdwanPimInterface
+                    order_weight: 1070
+                  - namespace: Sdwan
+                    name: StaticRpAddress
+                    label: Static RP Addresses
+                    kind: SdwanStaticRpAddress
+                    order_weight: 1080
+                order_weight: 1090
+              - namespace: Sdwan
+                name: ObjectTrackerGroup
+                label: Object Tracker Groups
+                kind: SdwanObjectTrackerGroup
+                order_weight: 1100
+              - namespace: Sdwan
+                name: FPSPObjectTracker
+                label: Object Trackers
+                kind: SdwanFPSPObjectTracker
+                order_weight: 1110
+              - namespace: Sdwan
+                name: OspfFeatures
+                label: OSPF Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPSPOspfFeature
+                    label: OSPF Feature
+                    kind: SdwanFPSPOspfFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Areas2
+                    label: Areas
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPOFArea
+                        label: Area
+                        kind: SdwanFPSPOFArea
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPOFAInterface
+                        label: Interfaces
+                        kind: SdwanFPSPOFAInterface
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPSPOFARange
+                        label: Ranges
+                        kind: SdwanFPSPOFARange
+                        order_weight: 1020
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPOFRedistribute
+                    label: Redistributes
+                    kind: SdwanFPSPOFRedistribute
+                    order_weight: 1020
+                order_weight: 1120
+              - namespace: Sdwan
+                name: Ospfv3Ipv4Features
+                label: Ospfv3 IPv4 Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Ospfv3Ipv4Feature
+                    label: Ospfv3 IPv4 Feature
+                    kind: SdwanOspfv3Ipv4Feature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Areas3
+                    label: Areas
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPO3I4FArea
+                        label: Area
+                        kind: SdwanFPSPO3I4FArea
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPO3I4FAInterface
+                        label: Interfaces
+                        kind: SdwanFPSPO3I4FAInterface
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPSPO3I4FARange
+                        label: Ranges
+                        kind: SdwanFPSPO3I4FARange
+                        order_weight: 1020
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPO3I4FRedistribute
+                    label: Redistributes
+                    kind: SdwanFPSPO3I4FRedistribute
+                    order_weight: 1020
+                order_weight: 1130
+              - namespace: Sdwan
+                name: Ospfv3Ipv6Features
+                label: Ospfv3 IPv6 Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: Ospfv3Ipv6Feature
+                    label: Ospfv3 IPv6 Feature
+                    kind: SdwanOspfv3Ipv6Feature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Areas4
+                    label: Areas
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPO3I6FArea
+                        label: Area
+                        kind: SdwanFPSPO3I6FArea
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPO3I6FAInterface
+                        label: Interfaces
+                        kind: SdwanFPSPO3I6FAInterface
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPSPO3I6FARange
+                        label: Ranges
+                        kind: SdwanFPSPO3I6FARange
+                        order_weight: 1020
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPO3I6FRedistribute
+                    label: Redistributes
+                    kind: SdwanFPSPO3I6FRedistribute
+                    order_weight: 1020
+                order_weight: 1140
+              - namespace: Sdwan
+                name: RoutePolicies2
+                label: Route Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPSPRoutePolicy
+                    label: Route Policy
+                    kind: SdwanFPSPRoutePolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPRPSequence
+                    label: Sequences
+                    kind: SdwanFPSPRPSequence
+                    order_weight: 1010
+                order_weight: 1150
+              - namespace: Sdwan
+                name: SwitchportFeatures
+                label: Switchport Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SwitchportFeature
+                    label: Switchport Feature
+                    kind: SdwanSwitchportFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPSFInterface
+                    label: Interfaces
+                    kind: SdwanFPSPSFInterface
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPSFStaticMacAddress
+                    label: Static MAC Addresses
+                    kind: SdwanFPSPSFStaticMacAddress
+                    order_weight: 1020
+                order_weight: 1160
+            order_weight: 1050
+          - namespace: Sdwan
+            name: SystemProfiles
+            label: System Profiles
+            children:
+              data:
+              - namespace: Sdwan
+                name: SystemProfile
+                label: System Profile
+                kind: SdwanSystemProfile
+                order_weight: 1000
+              - namespace: Sdwan
+                name: Aaa
+                label: AAA
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileAaa
+                    label: AAA
+                    kind: SdwanSystemProfileAaa
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPAAccountingRule
+                    label: Accounting Rules
+                    kind: SdwanFPSPAAccountingRule
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPAAuthorizationRule
+                    label: Authorization Rules
+                    kind: SdwanFPSPAAuthorizationRule
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: RadiusGroups
+                    label: RADIUS Groups
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: RadiusGroup
+                        label: RADIUS Group
+                        kind: SdwanRadiusGroup
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPARGServer
+                        label: Servers
+                        kind: SdwanFPSPARGServer
+                        order_weight: 1010
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: TacacsGroups
+                    label: TACACS Groups
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: TacacsGroup
+                        label: TACACS Group
+                        kind: SdwanTacacsGroup
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPATGServer
+                        label: Servers
+                        kind: SdwanFPSPATGServer
+                        order_weight: 1010
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: Users
+                    label: Users
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPAUser
+                        label: User
+                        kind: SdwanFPSPAUser
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: PublicKeyChain
+                        label: Public Key Chains
+                        kind: SdwanPublicKeyChain
+                        order_weight: 1010
+                    order_weight: 1050
+                order_weight: 1010
+              - namespace: Sdwan
+                name: Basic
+                label: Basic
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileBasic
+                    label: Basic
+                    kind: SdwanSystemProfileBasic
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: AffinityPerVrf
+                    label: Affinity Per VRFs
+                    kind: SdwanAffinityPerVrf
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: GeoFencingSmsMobileNumber
+                    label: Geo Fencing Sms Mobile Numbers
+                    kind: SdwanGeoFencingSmsMobileNumber
+                    order_weight: 1020
+                order_weight: 1020
+              - namespace: Sdwan
+                name: Bfd
+                label: BFD
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileBfd
+                    label: BFD
+                    kind: SdwanSystemProfileBfd
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPBColor
+                    label: Colors
+                    kind: SdwanFPSPBColor
+                    order_weight: 1010
+                order_weight: 1030
+              - namespace: Sdwan
+                name: CaCertificate
+                label: Ca Certificate
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileCaCertificate
+                    label: Ca Certificate
+                    kind: SdwanSystemProfileCaCertificate
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Certificate
+                    label: Certificates
+                    kind: SdwanCertificate
+                    order_weight: 1010
+                order_weight: 1040
+              - namespace: Sdwan
+                name: Ipv4DeviceAccessPolicy2
+                label: IPv4 Device Access Policy
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileIpv4DeviceAcce
+                    label: IPv4 Device Access Policy
+                    kind: SdwanSystemProfileIpv4DeviceAcce
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPI4DAPSequence
+                    label: Sequences
+                    kind: SdwanFPSPI4DAPSequence
+                    order_weight: 1010
+                order_weight: 1050
+              - namespace: Sdwan
+                name: Ipv6DeviceAccessPolicy2
+                label: IPv6 Device Access Policy
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileIpv6DeviceAcce
+                    label: IPv6 Device Access Policy
+                    kind: SdwanSystemProfileIpv6DeviceAcce
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPI6DAPSequence
+                    label: Sequences
+                    kind: SdwanFPSPI6DAPSequence
+                    order_weight: 1010
+                order_weight: 1060
+              - namespace: Sdwan
+                name: Logging
+                label: Logging
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileLogging
+                    label: Logging
+                    kind: SdwanSystemProfileLogging
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPLIpv4Server
+                    label: IPv4 Servers
+                    kind: SdwanFPSPLIpv4Server
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPLIpv6Server
+                    label: IPv6 Servers
+                    kind: SdwanFPSPLIpv6Server
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: FPSPLTlsProfile
+                    label: TLS Profiles
+                    kind: SdwanFPSPLTlsProfile
+                    order_weight: 1030
+                order_weight: 1070
+              - namespace: Sdwan
+                name: Ntp
+                label: NTP
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileNtp
+                    label: NTP
+                    kind: SdwanSystemProfileNtp
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPNAuthenticationKey
+                    label: Authentication Keys
+                    kind: SdwanFPSPNAuthenticationKey
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPNServer
+                    label: Servers
+                    kind: SdwanFPSPNServer
+                    order_weight: 1020
+                order_weight: 1080
+              - namespace: Sdwan
+                name: Security
+                label: Security
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileSecurity
+                    label: Security
+                    kind: SdwanSystemProfileSecurity
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPSKeyChain
+                    label: Key Chains
+                    kind: SdwanFPSPSKeyChain
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPSPSKey
+                    label: Keys
+                    kind: SdwanFPSPSKey
+                    order_weight: 1020
+                order_weight: 1090
+              - namespace: Sdwan
+                name: Snmp
+                label: SNMP
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: SystemProfileSnmp
+                    label: SNMP
+                    kind: SdwanSystemProfileSnmp
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPSPSCommunity
+                    label: Communities
+                    kind: SdwanFPSPSCommunity
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Group
+                    label: Groups
+                    kind: SdwanGroup
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: FPSPSTrapTargetServer
+                    label: Trap Target Servers
+                    kind: SdwanFPSPSTrapTargetServer
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: FPSPSUser
+                    label: Users
+                    kind: SdwanFPSPSUser
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: Views2
+                    label: Views
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPSPSView
+                        label: View
+                        kind: SdwanFPSPSView
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPSPSVOid
+                        label: Oids
+                        kind: SdwanFPSPSVOid
+                        order_weight: 1010
+                    order_weight: 1050
+                order_weight: 1100
+            order_weight: 1060
+          - namespace: Sdwan
+            name: TransportProfiles
+            label: Transport Profiles
+            children:
+              data:
+              - namespace: Sdwan
+                name: TransportProfile
+                label: Transport Profile
+                kind: SdwanTransportProfile
+                order_weight: 1000
+              - namespace: Sdwan
+                name: BgpFeatures2
+                label: BGP Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPTPBgpFeature
+                    label: BGP Feature
+                    kind: SdwanFPTPBgpFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPTPBFIpv4AggregateAddress
+                    label: IPv4 Aggregate Addresses
+                    kind: SdwanFPTPBFIpv4AggregateAddress
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Ipv4Neighbors2
+                    label: IPv4 Neighbors
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPBFIpv4Neighbor
+                        label: IPv4 Neighbor
+                        kind: SdwanFPTPBFIpv4Neighbor
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPBFI4NAddressFamily
+                        label: Address Families
+                        kind: SdwanFPTPBFI4NAddressFamily
+                        order_weight: 1010
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: FPTPBFIpv4Network
+                    label: IPv4 Networks
+                    kind: SdwanFPTPBFIpv4Network
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: FPTPBFIpv4Redistribute
+                    label: IPv4 Redistributes
+                    kind: SdwanFPTPBFIpv4Redistribute
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: FPTPBFIpv6AggregateAddress
+                    label: IPv6 Aggregate Addresses
+                    kind: SdwanFPTPBFIpv6AggregateAddress
+                    order_weight: 1050
+                  - namespace: Sdwan
+                    name: Ipv6Neighbors2
+                    label: IPv6 Neighbors
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPBFIpv6Neighbor
+                        label: IPv6 Neighbor
+                        kind: SdwanFPTPBFIpv6Neighbor
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPBFI6NAddressFamily
+                        label: Address Families
+                        kind: SdwanFPTPBFI6NAddressFamily
+                        order_weight: 1010
+                    order_weight: 1060
+                  - namespace: Sdwan
+                    name: FPTPBFIpv6Network
+                    label: IPv6 Networks
+                    kind: SdwanFPTPBFIpv6Network
+                    order_weight: 1070
+                  - namespace: Sdwan
+                    name: FPTPBFIpv6Redistribute
+                    label: IPv6 Redistributes
+                    kind: SdwanFPTPBFIpv6Redistribute
+                    order_weight: 1080
+                  - namespace: Sdwan
+                    name: FPTPBFMplsInterface
+                    label: MPLS Interfaces
+                    kind: SdwanFPTPBFMplsInterface
+                    order_weight: 1090
+                order_weight: 1010
+              - namespace: Sdwan
+                name: CellularProfile
+                label: Cellular Profiles
+                kind: SdwanCellularProfile
+                order_weight: 1020
+              - namespace: Sdwan
+                name: GpsFeature
+                label: Gps Features
+                kind: SdwanGpsFeature
+                order_weight: 1030
+              - namespace: Sdwan
+                name: Ipv4Acls2
+                label: IPv4 ACLs
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPTPIpv4Acl
+                    label: IPv4 ACL
+                    kind: SdwanFPTPIpv4Acl
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPTPI4ASequence
+                    label: Sequences
+                    kind: SdwanFPTPI4ASequence
+                    order_weight: 1010
+                order_weight: 1040
+              - namespace: Sdwan
+                name: FPTPIpv4TrackerGroup
+                label: IPv4 Tracker Groups
+                kind: SdwanFPTPIpv4TrackerGroup
+                order_weight: 1050
+              - namespace: Sdwan
+                name: FPTPIpv4Tracker
+                label: IPv4 Trackers
+                kind: SdwanFPTPIpv4Tracker
+                order_weight: 1060
+              - namespace: Sdwan
+                name: Ipv6Acls2
+                label: IPv6 ACLs
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPTPIpv6Acl
+                    label: IPv6 ACL
+                    kind: SdwanFPTPIpv6Acl
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPTPI6ASequence
+                    label: Sequences
+                    kind: SdwanFPTPI6ASequence
+                    order_weight: 1010
+                order_weight: 1070
+              - namespace: Sdwan
+                name: Ipv6TrackerGroup
+                label: IPv6 Tracker Groups
+                kind: SdwanIpv6TrackerGroup
+                order_weight: 1080
+              - namespace: Sdwan
+                name: Ipv6Tracker
+                label: IPv6 Trackers
+                kind: SdwanIpv6Tracker
+                order_weight: 1090
+              - namespace: Sdwan
+                name: ManagementVpn
+                label: Management VPN
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: TransportProfileManagementV
+                    label: Management VPN
+                    kind: SdwanTransportProfileManagementV
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EthernetInterfaces2
+                    label: Ethernet Interfaces
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPMVEthernetInterface
+                        label: Ethernet Interface
+                        kind: SdwanFPTPMVEthernetInterface
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPMVEIArpEntry
+                        label: ARP Entries
+                        kind: SdwanFPTPMVEIArpEntry
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: FPTPMVEIIpv4SecondaryAddres
+                        label: IPv4 Secondary Addresses
+                        kind: SdwanFPTPMVEIIpv4SecondaryAddres
+                        order_weight: 1020
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPTPMVHostMapping
+                    label: Host Mappings
+                    kind: SdwanFPTPMVHostMapping
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: Ipv4StaticRoutes3
+                    label: IPv4 Static Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPMVIpv4StaticRoute
+                        label: IPv4 Static Route
+                        kind: SdwanFPTPMVIpv4StaticRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPMVI4SRNextHop
+                        label: Next Hops
+                        kind: SdwanFPTPMVI4SRNextHop
+                        order_weight: 1010
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: Ipv6StaticRoutes3
+                    label: IPv6 Static Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPMVIpv6StaticRoute
+                        label: IPv6 Static Route
+                        kind: SdwanFPTPMVIpv6StaticRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPMVI6SRNextHop
+                        label: Next Hops
+                        kind: SdwanFPTPMVI6SRNextHop
+                        order_weight: 1010
+                    order_weight: 1040
+                order_weight: 1100
+              - namespace: Sdwan
+                name: OspfFeatures2
+                label: OSPF Features
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: FPTPOspfFeature
+                    label: OSPF Feature
+                    kind: SdwanFPTPOspfFeature
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: Areas5
+                    label: Areas
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: Area
+                        label: Area
+                        kind: SdwanArea
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPOFAInterface
+                        label: Interfaces
+                        kind: SdwanFPTPOFAInterface
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: Range
+                        label: Ranges
+                        kind: SdwanRange
+                        order_weight: 1020
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: Redistribute
+                    label: Redistributes
+                    kind: SdwanRedistribute
+                    order_weight: 1020
+                order_weight: 1110
+              - namespace: Sdwan
+                name: RoutePolicies3
+                label: Route Policies
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: RoutePolicy
+                    label: Route Policy
+                    kind: SdwanRoutePolicy
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: FPTPRPSequence
+                    label: Sequences
+                    kind: SdwanFPTPRPSequence
+                    order_weight: 1010
+                order_weight: 1120
+              - namespace: Sdwan
+                name: WanVpn
+                label: WAN VPN
+                children:
+                  data:
+                  - namespace: Sdwan
+                    name: TransportProfileWanVpn
+                    label: WAN VPN
+                    kind: SdwanTransportProfileWanVpn
+                    order_weight: 1000
+                  - namespace: Sdwan
+                    name: EthernetInterfaces3
+                    label: Ethernet Interfaces
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: EthernetInterface
+                        label: Ethernet Interface
+                        kind: SdwanEthernetInterface
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPWVEIArpEntry
+                        label: ARP Entries
+                        kind: SdwanFPTPWVEIArpEntry
+                        order_weight: 1010
+                      - namespace: Sdwan
+                        name: Ipv4NatLoopback
+                        label: IPv4 NAT Loopbacks
+                        kind: SdwanIpv4NatLoopback
+                        order_weight: 1020
+                      - namespace: Sdwan
+                        name: Ipv4NatPool
+                        label: IPv4 NAT Pools
+                        kind: SdwanIpv4NatPool
+                        order_weight: 1030
+                      - namespace: Sdwan
+                        name: Ipv4NatPortForwardingRule
+                        label: IPv4 NAT Port Forwarding Rules
+                        kind: SdwanIpv4NatPortForwardingRule
+                        order_weight: 1040
+                      - namespace: Sdwan
+                        name: Ipv4NatStaticEntry
+                        label: IPv4 NAT Static Entries
+                        kind: SdwanIpv4NatStaticEntry
+                        order_weight: 1050
+                      - namespace: Sdwan
+                        name: FPTPWVEIIpv4SecondaryAddres
+                        label: IPv4 Secondary Addresses
+                        kind: SdwanFPTPWVEIIpv4SecondaryAddres
+                        order_weight: 1060
+                      - namespace: Sdwan
+                        name: Ipv6Nat66StaticEntry
+                        label: IPv6 Nat66 Static Entries
+                        kind: SdwanIpv6Nat66StaticEntry
+                        order_weight: 1070
+                      - namespace: Sdwan
+                        name: FPTPWVEIIpv6DynamicSecondar
+                        label: IPv6 Dynamic Secondary Addresses
+                        kind: SdwanFPTPWVEIIpv6DynamicSecondar
+                        order_weight: 1080
+                      - namespace: Sdwan
+                        name: FPTPWVEIIpv6StaticSecondary
+                        label: IPv6 Static Secondary Addresses
+                        kind: SdwanFPTPWVEIIpv6StaticSecondary
+                        order_weight: 1090
+                      - namespace: Sdwan
+                        name: FPTPWVEIPortChannelMemberLi
+                        label: Port Channel Member Links
+                        kind: SdwanFPTPWVEIPortChannelMemberLi
+                        order_weight: 1100
+                    order_weight: 1010
+                  - namespace: Sdwan
+                    name: FPTPWVGreInterface
+                    label: GRE Interfaces
+                    kind: SdwanFPTPWVGreInterface
+                    order_weight: 1020
+                  - namespace: Sdwan
+                    name: HostMapping
+                    label: Host Mappings
+                    kind: SdwanHostMapping
+                    order_weight: 1030
+                  - namespace: Sdwan
+                    name: FPTPWVIpsecInterface
+                    label: IPSEC Interfaces
+                    kind: SdwanFPTPWVIpsecInterface
+                    order_weight: 1040
+                  - namespace: Sdwan
+                    name: Ipv4StaticRoutes4
+                    label: IPv4 Static Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPWVIpv4StaticRoute
+                        label: IPv4 Static Route
+                        kind: SdwanFPTPWVIpv4StaticRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPWVI4SRNextHop
+                        label: Next Hops
+                        kind: SdwanFPTPWVI4SRNextHop
+                        order_weight: 1010
+                    order_weight: 1050
+                  - namespace: Sdwan
+                    name: Ipv6StaticRoutes4
+                    label: IPv6 Static Routes
+                    children:
+                      data:
+                      - namespace: Sdwan
+                        name: FPTPWVIpv6StaticRoute
+                        label: IPv6 Static Route
+                        kind: SdwanFPTPWVIpv6StaticRoute
+                        order_weight: 1000
+                      - namespace: Sdwan
+                        name: FPTPWVI6SRNextHop
+                        label: Next Hops
+                        kind: SdwanFPTPWVI6SRNextHop
+                        order_weight: 1010
+                    order_weight: 1060
+                  - namespace: Sdwan
+                    name: Nat64V4Pool
+                    label: NAT 64 V4 Pools
+                    kind: SdwanNat64V4Pool
+                    order_weight: 1070
+                order_weight: 1130
+            order_weight: 1070
+        order_weight: 1090
+      - namespace: Sdwan
+        name: PolicyGroup
+        label: Policy Groups
+        kind: SdwanPolicyGroup
+        order_weight: 1100
+    order_weight: 1000
