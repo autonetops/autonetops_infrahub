@@ -16,8 +16,10 @@
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
+schemas: 
+  - schemas/sdwan.yml
 menus:
-  - menus/menu-intent.yml
+  - menus/
 
 queries:
   - name: contract_no_leak
