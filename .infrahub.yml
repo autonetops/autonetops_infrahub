@@ -16,10 +16,12 @@
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
-schemas: 
+schemas:
   - schemas/sdwan.yml
+
 menus:
-  - menus/
+  - menus/menu-intent.yml
+  - menus/sdwan.yml
 
 queries:
   - name: contract_no_leak
@@ -40,6 +42,8 @@ queries:
     file_path: "queries/grafana_dashboard.gql"
   - name: edge_bgp_local_pref
     file_path: "queries/edge_bgp_local_pref.gql"
+  - name: get_sdwan_nac_data
+    file_path: "queries/sdwan.gql"
 
 check_definitions:
   - name: observability_capability_check
@@ -83,6 +87,9 @@ python_transforms:
   - name: grafana_dashboard
     class_name: GrafanaDashboardTransform
     file_path: "transforms/grafana_dashboard.py"
+  - name: sdwan_nac_export
+    class_name: SdwanNacExport
+    file_path: "transforms/sdwan_transform.py"
 
 artifact_definitions:
   - name: device-configuration
