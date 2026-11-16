@@ -14,21 +14,16 @@
 #   observability_contracts - IntentObservabilityContract nodes (alert-rule
 #                             artifacts)
 #   intent_tenants          - IntentTenant nodes (dashboards)
-#   oob_switches            - OOB management switches (consumed by the OOB check)
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
 menus:
   - menus/menu-intent.yml
 
 queries:
-  - name: oob_reachability
-    file_path: "queries/oob_reachability.gql"
   - name: contract_no_leak
     file_path: "queries/contract_no_leak.gql"
   - name: contract_prefix_authorization
     file_path: "queries/contract_prefix_authorization.gql"
-  - name: tenant_redundancy
-    file_path: "queries/tenant_redundancy.gql"
   - name: observability_capability
     file_path: "queries/observability_capability.gql"
   - name: device_config
@@ -45,12 +40,6 @@ queries:
     file_path: "queries/edge_bgp_local_pref.gql"
 
 check_definitions:
-  - name: oob_reachability_check
-    class_name: OOBReachabilityCheck
-    file_path: "checks/oob_reachability.py"
-  - name: tenant_redundancy_check
-    class_name: TenantRedundancyCheck
-    file_path: "checks/tenant_redundancy.py"
   - name: observability_capability_check
     class_name: ObservabilityCapabilityCheck
     file_path: "checks/observability_capability.py"
