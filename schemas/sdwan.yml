@@ -1047,8 +1047,7 @@ nodes:
   - name: secret_key
     kind: Password
     optional: false
-    parameters:
-      regex: ^[0-9a-z]{1,150}$
+    regex: ^[0-9a-z]{1,150}$
   relationships:
   - name: radius_server_group
     label: RADIUS Server Groups
@@ -1149,8 +1148,7 @@ nodes:
   - name: secret_key
     kind: Password
     optional: false
-    parameters:
-      regex: ^[0-9a-z]{1,150}$
+    regex: ^[0-9a-z]{1,150}$
   relationships:
   - name: tacacs_server_group
     label: TACACS Server Groups
@@ -8507,8 +8505,7 @@ nodes:
     kind: Password
     label: Umbrella API Key
     optional: true
-    parameters:
-      regex: ^[0-9a-z]{1,32}$
+    regex: ^[0-9a-z]{1,32}$
   - name: umbrella_api_key_variable
     kind: Text
     label: Umbrella API Key Variable
@@ -26991,8 +26988,7 @@ nodes:
   - name: hmac_authentication_key
     kind: Password
     optional: true
-    parameters:
-      regex: ^[^0-7].{0,30}$
+    regex: ^[^0-7].{0,30}$
   - name: hmac_authentication_key_variable
     kind: Text
     optional: true
@@ -35420,8 +35416,7 @@ nodes:
     kind: Password
     label: Authentication IPSEC Key
     optional: true
-    parameters:
-      regex: ^[0-9a-fA-F]{40}$
+    regex: ^[0-9a-fA-F]{40}$
   - name: authentication_ipsec_key_variable
     kind: Text
     label: Authentication IPSEC Key Variable
@@ -36034,8 +36029,7 @@ nodes:
     kind: Password
     label: Authentication IPSEC Key
     optional: true
-    parameters:
-      regex: ^[0-9a-fA-F]{40}$
+    regex: ^[0-9a-fA-F]{40}$
   - name: authentication_ipsec_key_variable
     kind: Text
     label: Authentication IPSEC Key Variable
