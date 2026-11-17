@@ -133,8 +133,8 @@ artifact_definitions:
       tenant: name__value
 
   - name: sdwan-nac
-    aftifact_name: sdwan-nac
-    content_type: applicaition/yaml
+    artifact_name: sdwan-nac
+    content_type: application/yaml
     targets: sdwan_instances
     transformation: sdwan_nac_export
     parameters:
