@@ -131,3 +131,11 @@ artifact_definitions:
     transformation: grafana_dashboard
     parameters:
       tenant: name__value
+
+  - name: sdwan-nac
+    aftifact_name: sdwan-nac
+    content_type: applicaition/yaml
+    targets: sdwan_instances
+    transformation: sdwan_nac_export
+    parameters:
+      instance_name: name__value
