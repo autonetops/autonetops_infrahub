@@ -229,10 +229,12 @@ query device_config($device: String!) {
               name {
                 value
               }
-              asn {
-                node {
-                  asn {
-                    value
+              ... on DcimDevice {
+                asn {
+                  node {
+                    asn {
+                      value
+                    }
                   }
                 }
               }
@@ -265,10 +267,12 @@ query device_config($device: String!) {
               name {
                 value
               }
-              asn {
-                node {
-                  asn {
-                    value
+              ... on DcimDevice {
+                asn {
+                  node {
+                    asn {
+                      value
+                    }
                   }
                 }
               }

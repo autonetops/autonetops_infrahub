@@ -18,3 +18,17 @@ extensions:
           optional: true
           description: "BGP LOCAL_PREF this device applies to learned routes (higher wins)."
           order_weight: 5000
+      relationships:
+        # Re-homed from DcimGenericDevice: the newer schema-library gives
+        # LoadbalancerGenericDevice its own `asn` (peer RoutingAutonomousSystemGeneric),
+        # so DcimLoadBalancer can't inherit both and the generic one was dropped
+        # on 2026-10-03. The original identifier is kept so the existing
+        # device->ASN edges reattach.
+        - name: asn
+          label: "Autonomous System"
+          peer: RoutingAutonomousSystem
+          identifier: dcimgenericdevice__routingautonomoussystem
+          kind: Attribute
+          cardinality: one
+          optional: true
+          order_weight: 1800

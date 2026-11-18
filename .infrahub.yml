@@ -16,12 +16,14 @@
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
+# SD-WAN disabled 2026-11-18 (schema removed from Infrahub to cut load); uncomment to re-enable.
 schemas:
-  - schemas/sdwan.yml
+  - schemas/dcim_bgp.yml
+#   - schemas/sdwan.yml
 
 menus:
   - menus/menu-intent.yml
-  - menus/sdwan.yml
+#   - menus/sdwan.yml
 
 queries:
   - name: contract_no_leak
@@ -42,8 +44,8 @@ queries:
     file_path: "queries/grafana_dashboard.gql"
   - name: edge_bgp_local_pref
     file_path: "queries/edge_bgp_local_pref.gql"
-  - name: get_sdwan_nac_data
-    file_path: "queries/sdwan.gql"
+#   - name: get_sdwan_nac_data
+#     file_path: "queries/sdwan.gql"
 
 check_definitions:
   - name: observability_capability_check
@@ -87,9 +89,9 @@ python_transforms:
   - name: grafana_dashboard
     class_name: GrafanaDashboardTransform
     file_path: "transforms/grafana_dashboard.py"
-  - name: sdwan_nac_export
-    class_name: SdwanNacExport
-    file_path: "transforms/sdwan_transform.py"
+#   - name: sdwan_nac_export
+#     class_name: SdwanNacExport
+#     file_path: "transforms/sdwan_transform.py"
 
 artifact_definitions:
   - name: device-configuration
@@ -132,10 +134,10 @@ artifact_definitions:
     parameters:
       tenant: name__value
 
-  - name: sdwan-nac
-    artifact_name: sdwan-nac
-    content_type: application/yaml
-    targets: sdwan_instances
-    transformation: sdwan_nac_export
-    parameters:
-      instance_name: name__value
+#   - name: sdwan-nac
+#     artifact_name: sdwan-nac
+#     content_type: application/yaml
+#     targets: sdwan_instances
+#     transformation: sdwan_nac_export
+#     parameters:
+#       instance_name: name__value
