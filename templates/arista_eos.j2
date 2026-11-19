@@ -1,0 +1,164 @@
+{#-
+  Arista EOS device configuration - the syntax half of render_arista_eos.
+
+  transforms/device_config.py owns every decision (sessions from cabling,
+  no-leak community filters, ACL entries, sequence numbers) and hands this
+  template a flat view; the template only spells it in EOS.
+
+  The output is a COMPLETE config: it must survive `configure replace`.
+  The "access baseline" blocks (admin user, management APIs, Management0,
+  management default route) are what keep the box reachable after a full
+  replace - drop one and the replace locks you out.
+-#}
+! Compiled by InfraHub - intent artifact, do not hand-edit
+hostname {{ hostname }}
+service routing protocols model multi-agent
+ip routing
+mpls ip
+!
+{# ---- access baseline: AAA ---- #}
+no aaa root
+aaa authorization exec default local
+username {{ access.user }} privilege 15 role network-admin secret sha512 {{ access.secret_sha512 }}
+!
+{# ---- access baseline: management APIs (SSH CLI is always on) ---- #}
+management api http-commands
+ no shutdown
+!
+management api netconf
+ transport ssh default
+!
+management api gnmi
+ transport grpc default
+!
+{% for vrf in vrfs %}
+vrf instance {{ vrf }}
+!
+ip routing vrf {{ vrf }}
+!
+{% endfor %}
+{% for iface in interfaces %}
+interface {{ iface.name }}
+{% if iface.description %}
+ description {{ iface.description }}
+{% endif %}
+{% if iface.routed %}
+ no switchport
+{% endif %}
+{% if iface.vrf %}
+ vrf {{ iface.vrf }}
+{% endif %}
+ ip address {{ iface.address }}
+{% if iface.ospf %}
+ ip ospf area 0.0.0.0
+{% endif %}
+{% if iface.mpls %}
+ mpls ip
+{% endif %}
+{% if iface.acl %}
+ ip access-group {{ iface.acl }} in
+{% endif %}
+!
+{% endfor %}
+{# ---- access baseline: out-of-band management ---- #}
+{% if mgmt.address %}
+interface {{ mgmt.interface }}
+ description Management
+ ip address {{ mgmt.address }}
+!
+{% if mgmt.gateway %}
+ip route 0.0.0.0/0 {{ mgmt.gateway }}
+!
+{% endif %}
+{% endif %}
+router ospf 1
+ router-id {{ router_id }}
+ passive-interface Loopback0
+!
+mpls ldp
+ router-id {{ router_id }}
+ no shutdown
+!
+{% for acl in acls %}
+ip access-list {{ acl.name }}
+{% for entry in acl.entries %}
+ {{ entry }}
+{% endfor %}
+!
+{% endfor %}
+{% if community_lists %}
+{% for cl in community_lists %}
+ip community-list {{ cl.name }} permit {{ cl.community }}
+{% endfor %}
+!
+{% endif %}
+{% if bgp.asn %}
+router bgp {{ bgp.asn }}
+ router-id {{ router_id }}
+{% for rr in bgp.rr_neighbors %}
+ neighbor {{ rr.ip }} remote-as {{ rr.remote_as }}
+ neighbor {{ rr.ip }} update-source Loopback0
+ neighbor {{ rr.ip }} send-community extended
+ address-family vpn-ipv4
+  neighbor {{ rr.ip }} activate
+ !
+{% endfor %}
+{% for s in bgp.peering_sessions %}
+ neighbor {{ s.ip }} remote-as {{ s.remote_as }}
+ neighbor {{ s.ip }} send-community
+ neighbor {{ s.ip }} route-map {{ s.rm_in }} in
+ neighbor {{ s.ip }} route-map {{ s.rm_out }} out
+{% if s.max_routes %}
+ neighbor {{ s.ip }} maximum-routes {{ s.max_routes }}
+{% endif %}
+ address-family ipv4
+  neighbor {{ s.ip }} activate
+ !
+{% endfor %}
+{% for vrf in bgp.vrfs %}
+ vrf {{ vrf.name }}
+  rd {{ vrf.rd }}
+  route-target import vpn-ipv4 {{ vrf.import_rt }}
+  route-target export vpn-ipv4 {{ vrf.export_rt }}
+{% for n in vrf.neighbors %}
+  neighbor {{ n.ip }} remote-as {{ n.remote_as }}
+  neighbor {{ n.ip }} send-community
+  neighbor {{ n.ip }} route-map {{ n.rm_in }} in
+{% if n.max_routes %}
+  neighbor {{ n.ip }} maximum-routes {{ n.max_routes }}
+{% endif %}
+{% endfor %}
+ !
+{% endfor %}
+!
+{% endif %}
+{% for p in edge_policies %}
+{% for seq, prefix in p.prefixes %}
+ip prefix-list {{ p.prefix_list }} seq {{ seq }} permit {{ prefix }}
+{% endfor %}
+route-map {{ p.rm_in }} permit 10
+ match ip address prefix-list {{ p.prefix_list }}
+{% if p.communities %}
+ set community {{ p.communities }} additive
+{% endif %}
+{% if p.local_preference %}
+ set local-preference {{ p.local_preference }}
+{% endif %}
+route-map {{ p.rm_in }} deny 20
+!
+{% endfor %}
+{% for p in peering_policies %}
+{% for seq, prefix in p.prefixes %}
+ip prefix-list {{ p.prefix_list }} seq {{ seq }} permit {{ prefix }}
+{% endfor %}
+route-map {{ p.rm_in }} permit 10
+ match ip address prefix-list {{ p.prefix_list }}
+route-map {{ p.rm_in }} deny 20
+{# THE no-leak materialization: tenant communities denied outbound #}
+{% for seq, list_name in p.deny_out %}
+route-map {{ p.rm_out }} deny {{ seq }}
+ match community {{ list_name }}
+{% endfor %}
+route-map {{ p.rm_out }} permit {{ p.permit_seq }}
+!
+{% endfor %}

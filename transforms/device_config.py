@@ -22,11 +22,54 @@ one-field edit rather than a rewrite.
 """
 
 import ipaddress
+import pathlib
 import re
 
+import jinja2
 from infrahub_sdk.transforms import InfrahubTransform
 
 LOOPBACK_PREFIXES = ("loopback", "system", "lo")
+
+# Hybrid rendering: Python owns the decisions, Jinja2 owns the vendor
+# syntax. Renderers that have moved to a template build a flat view and
+# hand it to templates/<platform>.j2; StrictUndefined turns a view/template
+# mismatch into a failed artifact instead of a silently blank line.
+TEMPLATE_DIR = pathlib.Path(__file__).resolve().parent.parent / "templates"
+_JINJA = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)),
+    undefined=jinja2.StrictUndefined,
+    trim_blocks=True,
+    lstrip_blocks=True,
+    keep_trailing_newline=True,
+)
+
+
+def render_template(name, view):
+    return _JINJA.get_template(name).render(**view)
+
+
+# EOS access baseline - box-local, not intent (like SRL_LABEL_RANGE).
+# The PE artifacts must survive a full `configure replace`, so they carry
+# what keeps the box reachable: the management port, its default route, the
+# admin account and the management APIs the delivery/telemetry stack uses.
+# The secret is the sha512 crypt of the lab admin/admin password; a fixed
+# hash (rather than `secret 0`) keeps the config diff stable across pushes.
+EOS_MGMT_INTERFACE = "Management0"
+EOS_ADMIN_USER = "admin"
+EOS_ADMIN_SECRET_SHA512 = (
+    "$6$hywdiPd2Ong5XKfc$oSYu.ACZ7.CxW9tW8y7jb/lqSZGt21/kt7WhCE8/"
+    "p6oI2gJkdQdH/y840upBTdlytlyw7Bf98f/Q.op0r169m."
+)
+
+
+def mgmt_gateway(cidr):
+    """First host of the management subnet - the containerlab mgmt bridge
+    convention (172.20.20.1). The SoT models the management prefix but no
+    gateway, so it is derived, never a new intent field."""
+    if not cidr:
+        return None
+    net = ipaddress.ip_interface(cidr).network
+    return str(next(net.hosts()))
 
 # SR Linux spells the BGP address families differently from the intent
 # vocabulary: a contract says `vpn-ipv4`, the box says
@@ -91,9 +134,13 @@ def parse_device(data):
             "remote": remote,
         })
     asn = _node(node.get("asn"))
+    primary = _node(node.get("primary_address"))
     return {
         "name": _v(node["name"]),
         "role": _v(node.get("role")),
+        # the out-of-band management address (CIDR) - not an interface in
+        # the intent model, but a config replace without it locks you out
+        "primary_address": _v(primary["address"]) if primary else None,
         "platform": _v(platform.get("name")),
         "capabilities": {
             _v(c["name"]) for c in _edges(platform.get("capabilities"))
@@ -660,15 +707,19 @@ def _iosxe_acl(policy):
 
 
 def render_arista_eos(device, contracts, policies):
-    lines = [
-        "! Compiled by InfraHub - intent artifact, do not hand-edit",
-        f"hostname {device['name']}",
-        "service routing protocols model multi-agent",
-        "ip routing",
-        "mpls ip",
-        "!",
-    ]
+    """Arista EOS provider edge: Python decides, ``templates/arista_eos.j2``
+    spells it.
 
+    Everything that needs the graph (sessions from cabling, the no-leak
+    community filters, ACL entries, sequence numbers) is resolved here into
+    a flat view; the template holds no logic beyond loops and guards. The
+    output is a complete config that survives ``configure replace`` - see
+    the access baseline constants at the top of the module.
+    """
+    return render_template("arista_eos.j2", eos_view(device, contracts, policies))
+
+
+def eos_view(device, contracts, policies):
     my_edge = [
         c for c in contracts
         if c["role"] == "customer_edge" and c["vrf"]
@@ -680,67 +731,33 @@ def render_arista_eos(device, contracts, policies):
         and device["name"] in {d["name"] for d in c["pe_devices"]}
     ]
 
-    for c in my_edge:
-        vrf = c["vrf"]
-        lines += [f"vrf instance {vrf['name']}", "!",
-                  f"ip routing vrf {vrf['name']}", "!"]
-
     cust_vrf_by_neighbor_dev = {}
     for c in my_edge:
         for d in c["ce_devices"]:
             cust_vrf_by_neighbor_dev[d["name"]] = c["vrf"]["name"]
 
+    interfaces = []
     for iface in device["interfaces"]:
         if not iface["ips"]:
             continue
-        lines.append(f"interface {iface['name']}")
-        if iface["description"]:
-            lines.append(f" description {iface['description']}")
-        if not iface["name"].lower().startswith("loopback"):
-            lines.append(" no switchport")
+        name = iface["name"]
+        is_loopback = name.lower().startswith(LOOPBACK_PREFIXES)
         remote_dev = iface["remote"]["device"] if iface["remote"] else None
         vrf_name = cust_vrf_by_neighbor_dev.get(remote_dev)
-        if vrf_name and iface["role"] == "cust":
-            lines.append(f" vrf {vrf_name}")
-        lines.append(f" ip address {iface['ips'][0]}")
-        if iface["role"] == "core":
-            lines += [" ip ospf area 0.0.0.0", " mpls ip"]
-        elif iface["name"].lower().startswith(LOOPBACK_PREFIXES):
+        interfaces.append({
+            "name": name,
+            "description": iface["description"],
+            "routed": not name.lower().startswith("loopback"),
+            "vrf": vrf_name if vrf_name and iface["role"] == "cust" else None,
+            "address": iface["ips"][0],
             # EOS: passive-interface alone does not advertise the loopback;
             # it still needs an area assignment to enter OSPF at all
-            lines.append(" ip ospf area 0.0.0.0")
-        acl = _iosxe_acl_name(policies, iface["role"])
-        if acl:
-            lines.append(f" ip access-group {acl} in")
-        lines.append("!")
+            "ospf": iface["role"] == "core" or is_loopback,
+            "mpls": iface["role"] == "core",
+            "acl": _iosxe_acl_name(policies, iface["role"]),
+        })
 
-    lo = loopback_ip(device["interfaces"])
-    lines += [
-        "router ospf 1",
-        f" router-id {lo}",
-        " passive-interface Loopback0",
-        "!",
-        "mpls ldp",
-        f" router-id {lo}",
-        " no shutdown",
-        "!",
-    ]
-
-    for policy in policies:
-        lines += _eos_acl(policy)
-
-    # community-lists for leak protection on peering contracts
-    community_lists = [
-        f"ip community-list DENY-TENANT-{tenant.upper()} permit {community}"
-        for c in my_peering
-        for tenant, community in denied_communities(contracts, c)
-    ]
-    if community_lists:
-        lines += community_lists + ["!"]
-
-    lines.append(f"router bgp {device['asn']}")
-    lines.append(f" router-id {lo}")
-
+    rr_neighbors = []
     for c in contracts:
         if c["role"] != "core":
             continue
@@ -749,111 +766,105 @@ def render_arista_eos(device, contracts, policies):
                 rr_lo = loopback_ip(
                     [{"name": i["name"], "ips": i["ips"]} for i in rr["interfaces"]]
                 )
-                lines += [
-                    f" neighbor {rr_lo} remote-as {c['peer_asn']}",
-                    f" neighbor {rr_lo} update-source Loopback0",
-                    f" neighbor {rr_lo} send-community extended",
-                    " address-family vpn-ipv4",
-                    f"  neighbor {rr_lo} activate",
-                    " !",
-                ]
+                rr_neighbors.append({"ip": rr_lo, "remote_as": c["peer_asn"]})
 
-    # internet peering / transit sessions in the default VRF
+    peering_sessions = []
     for c in my_peering:
-        rm_in = f"{c['name'].upper()}-IN"
-        rm_out = f"{c['name'].upper()}-OUT"
         for session in edge_sessions(device, c, "pe_devices"):
-            lines += [
-                f" neighbor {session['neighbor_ip']} remote-as {c['peer_asn']}",
-                f" neighbor {session['neighbor_ip']} send-community",
-                f" neighbor {session['neighbor_ip']} route-map {rm_in} in",
-                f" neighbor {session['neighbor_ip']} route-map {rm_out} out",
-            ]
-            if c["max_prefixes_ipv4"]:
-                lines.append(
-                    f" neighbor {session['neighbor_ip']} maximum-routes "
-                    f"{c['max_prefixes_ipv4']}"
-                )
-            lines += [
-                " address-family ipv4",
-                f"  neighbor {session['neighbor_ip']} activate",
-                " !",
-            ]
+            peering_sessions.append({
+                "ip": session["neighbor_ip"],
+                "remote_as": c["peer_asn"],
+                "rm_in": f"{c['name'].upper()}-IN",
+                "rm_out": f"{c['name'].upper()}-OUT",
+                "max_routes": c["max_prefixes_ipv4"],
+            })
 
-    # tenant VRF address families
+    bgp_vrfs = []
     for c in my_edge:
-        rm_in = f"{c['name'].upper()}-IN"
-        lines.append(f" vrf {c['vrf']['name']}")
-        lines.append(f"  rd {c['vrf']['rd']}")
-        lines.append(f"  route-target import vpn-ipv4 {c['vrf']['import_rt'].replace('target:', '')}")
-        lines.append(f"  route-target export vpn-ipv4 {c['vrf']['export_rt'].replace('target:', '')}")
-        for session in edge_sessions(device, c, "pe_devices"):
-            lines += [
-                f"  neighbor {session['neighbor_ip']} remote-as {c['peer_asn']}",
-                f"  neighbor {session['neighbor_ip']} send-community",
-                f"  neighbor {session['neighbor_ip']} route-map {rm_in} in",
-            ]
-            if c["max_prefixes_ipv4"]:
-                lines.append(
-                    f"  neighbor {session['neighbor_ip']} maximum-routes "
-                    f"{c['max_prefixes_ipv4']}"
-                )
-        lines.append(" !")
-    lines.append("!")
+        bgp_vrfs.append({
+            "name": c["vrf"]["name"],
+            "rd": c["vrf"]["rd"],
+            "import_rt": c["vrf"]["import_rt"].replace("target:", ""),
+            "export_rt": c["vrf"]["export_rt"].replace("target:", ""),
+            "neighbors": [
+                {
+                    "ip": session["neighbor_ip"],
+                    "remote_as": c["peer_asn"],
+                    "rm_in": f"{c['name'].upper()}-IN",
+                    "max_routes": c["max_prefixes_ipv4"],
+                }
+                for session in edge_sessions(device, c, "pe_devices")
+            ],
+        })
 
-    # route-maps + prefix-lists
-    for c in my_edge:
-        pfx_list = f"{c['name'].upper()}-IN-V4"
-        rm_in = f"{c['name'].upper()}-IN"
-        seq = 5
-        for prefix in c["allowed_prefixes"]:
-            if ipaddress.ip_network(prefix).version != 4:
-                continue
-            lines.append(f"ip prefix-list {pfx_list} seq {seq} permit {prefix}")
-            seq += 5
-        communities = " ".join(c["require_communities"] + c["attach_communities"])
-        lines += [
-            f"route-map {rm_in} permit 10",
-            f" match ip address prefix-list {pfx_list}",
-        ]
-        if communities:
-            lines.append(f" set community {communities} additive")
-        if c["local_preference"]:
-            lines.append(f" set local-preference {c['local_preference']}")
-        lines += [f"route-map {rm_in} deny 20", "!"]
+    edge_policies = [
+        {
+            "prefix_list": f"{c['name'].upper()}-IN-V4",
+            "prefixes": _v4_prefix_seq(c["allowed_prefixes"]),
+            "rm_in": f"{c['name'].upper()}-IN",
+            "communities": " ".join(
+                c["require_communities"] + c["attach_communities"]
+            ),
+            "local_preference": c["local_preference"],
+        }
+        for c in my_edge
+    ]
 
+    peering_policies = []
     for c in my_peering:
-        pfx_list = f"{c['name'].upper()}-IN-V4"
-        rm_in = f"{c['name'].upper()}-IN"
-        rm_out = f"{c['name'].upper()}-OUT"
-        seq = 5
-        for prefix in c["allowed_prefixes"]:
-            if ipaddress.ip_network(prefix).version != 4:
-                continue
-            lines.append(f"ip prefix-list {pfx_list} seq {seq} permit {prefix}")
-            seq += 5
-        lines += [
-            f"route-map {rm_in} permit 10",
-            f" match ip address prefix-list {pfx_list}",
-            f"route-map {rm_in} deny 20",
-        ]
-        # THE no-leak materialization: tenant communities denied outbound
-        seq = 10
-        for tenant, _community in denied_communities(contracts, c):
-            lines += [
-                f"route-map {rm_out} deny {seq}",
-                f" match community DENY-TENANT-{tenant.upper()}",
-            ]
-            seq += 10
-        lines += [f"route-map {rm_out} permit {seq}", "!"]
+        denied = denied_communities(contracts, c)
+        peering_policies.append({
+            "prefix_list": f"{c['name'].upper()}-IN-V4",
+            "prefixes": _v4_prefix_seq(c["allowed_prefixes"]),
+            "rm_in": f"{c['name'].upper()}-IN",
+            "rm_out": f"{c['name'].upper()}-OUT",
+            "deny_out": [
+                (10 * (i + 1), f"DENY-TENANT-{tenant.upper()}")
+                for i, (tenant, _community) in enumerate(denied)
+            ],
+            "permit_seq": 10 * (len(denied) + 1),
+        })
 
-    return "\n".join(lines) + "\n"
+    lo = loopback_ip(device["interfaces"])
+    return {
+        "hostname": device["name"],
+        "access": {"user": EOS_ADMIN_USER, "secret_sha512": EOS_ADMIN_SECRET_SHA512},
+        "mgmt": {
+            "interface": EOS_MGMT_INTERFACE,
+            "address": device.get("primary_address"),
+            "gateway": mgmt_gateway(device.get("primary_address")),
+        },
+        "vrfs": [c["vrf"]["name"] for c in my_edge],
+        "interfaces": interfaces,
+        "router_id": lo,
+        "acls": [
+            {"name": p["name"].upper(), "entries": _eos_acl_entries(p)}
+            for p in policies if p["rules"]
+        ],
+        "community_lists": [
+            {"name": f"DENY-TENANT-{tenant.upper()}", "community": community}
+            for c in my_peering
+            for tenant, community in denied_communities(contracts, c)
+        ],
+        "bgp": {
+            "asn": device["asn"],
+            "rr_neighbors": rr_neighbors,
+            "peering_sessions": peering_sessions,
+            "vrfs": bgp_vrfs,
+        },
+        "edge_policies": edge_policies,
+        "peering_policies": peering_policies,
+    }
 
 
-def _eos_acl(policy):
-    if not policy["rules"]:
-        return []
-    lines = [f"ip access-list {policy['name'].upper()}"]
+def _v4_prefix_seq(prefixes):
+    """IPv4 prefixes numbered 5, 10, 15... for a prefix-list."""
+    v4 = [p for p in prefixes if ipaddress.ip_network(p).version == 4]
+    return [(5 * (i + 1), p) for i, p in enumerate(v4)]
+
+
+def _eos_acl_entries(policy):
+    entries = []
     seq = 10
     for rule in policy["rules"]:
         proto = "ip" if rule["protocol"] == "any" else rule["protocol"]
@@ -864,13 +875,13 @@ def _eos_acl(policy):
                 continue
             if rule["dst_ports"] and proto in ("tcp", "udp"):
                 for port in rule["dst_ports"]:
-                    lines.append(f" {seq} {action} {proto} any {dst} eq {port}")
+                    entries.append(f"{seq} {action} {proto} any {dst} eq {port}")
                     seq += 10
             else:
-                lines.append(f" {seq} {action} {proto} any {dst}")
+                entries.append(f"{seq} {action} {proto} any {dst}")
                 seq += 10
-    lines += [f" {seq} permit ip any any", "!"]
-    return lines
+    entries.append(f"{seq} permit ip any any")
+    return entries
 
 
 def render_juniper_junos(device, contracts, policies):
