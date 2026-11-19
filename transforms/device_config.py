@@ -747,7 +747,10 @@ def eos_view(device, contracts, policies):
         interfaces.append({
             "name": name,
             "description": iface["description"],
-            "routed": not name.lower().startswith("loopback"),
+            "routed": (
+                not name.lower().startswith(("loopback", "management"))
+                and iface["role"] != "management"
+            ),
             "vrf": vrf_name if vrf_name and iface["role"] == "cust" else None,
             "address": iface["ips"][0],
             # EOS: passive-interface alone does not advertise the loopback;
