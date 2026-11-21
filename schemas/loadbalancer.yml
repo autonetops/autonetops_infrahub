@@ -31,6 +31,8 @@
 #   - ServiceVIP gains attached_profiles, irules, vlans, vlans_enabled,
 #     translate_address, translate_port and `snat_pool`.
 #   - New kind LoadbalancerSnatPool (ltm snatpool): cluster, addresses.
+#   - DcimLoadBalancer inherits CoreArtifactTarget (as DcimDevice does), so the
+#     f5-ltm-configuration artifact can attach to it.
 # Sidebar entries: menus/menu-loadbalancer.yml.
 #
 # Requires these kinds from schema files not in this repo yet:
@@ -745,6 +747,7 @@ nodes:
     inherit_from:
       - LoadbalancerGenericDevice
       - DcimGenericDevice
+      - CoreArtifactTarget
     display_label: '{{ name__value }}'
     human_friendly_id:
       - name__value
