@@ -8,6 +8,7 @@
 #     ├── Contracts          (IntentContract generic - ACHIEVED BY;
 #     │                       shows every subtype: routing, reachability,
 #     │                       security, observability, reliability)
+#     ├── Signals            (IntentObservabilitySignal - WATCHED BY)
 #     ├── Policies           (IntentPolicy generic - GOVERNED BY;
 #     │    └── Change Windows (OpsChangeWindow - the operational policy)
 #     ├── Invariants         (IntentInvariant generic - GUARANTEED BY;
@@ -53,6 +54,18 @@ spec:
             kind: IntentContract
             icon: "mdi:file-sign"
             order_weight: 2000
+
+          # ---- WATCHED BY (components of observability contracts) ------
+          # Each signal is one measured fact (session state, route count)
+          # with its alert predicate; `watches` points at the contract it
+          # keeps honest. Listed top-level because signals are what the
+          # monitoring stack is compiled from (signal catalog, ADR-0002).
+          - namespace: Intent
+            name: Signals
+            label: "Signals"
+            kind: IntentObservabilitySignal
+            icon: "mdi:pulse"
+            order_weight: 2500
 
           # --------------- GOVERNED BY (referenced, scoped) -------------
           - namespace: Intent

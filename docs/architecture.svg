@@ -1,0 +1,327 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 980" width="1600" height="980" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0f766e"/>
+    </marker>
+    <style>
+      .t  { font-size: 13px; fill: #0f172a; font-weight: 600; }
+      .s  { font-size: 11px; fill: #475569; }
+      .xs { font-size: 10px; fill: #64748b; }
+      .h  { font-size: 15px; fill: #0f172a; font-weight: 700; }
+      .col{ font-size: 12px; fill: #94a3b8; font-weight: 700; letter-spacing: .08em; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; fill: #0f172a; }
+      .frame { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.2; rx: 10; }
+      .box { fill: #ffffff; stroke: #94a3b8; stroke-width: 1; rx: 6; }
+      .new { fill: #ccfbf1; stroke: #0f766e; stroke-width: 1.6; rx: 6; }
+      .inv { fill: #ede9fe; stroke: #7c3aed; stroke-width: 1.2; rx: 6; }
+      .owed { fill: #ffffff; stroke: #94a3b8; stroke-width: 1; stroke-dasharray: 5 4; rx: 6; }
+      .ask { fill: #fef3c7; stroke: #d97706; stroke-width: 1.2; rx: 6; }
+      .flow { stroke: #475569; stroke-width: 1.4; fill: none; marker-end: url(#arr); }
+      .pflow { stroke: #7c3aed; stroke-width: 1.4; fill: none; stroke-dasharray: 6 4; marker-end: url(#arrP); }
+      .gflow { stroke: #0f766e; stroke-width: 1.6; fill: none; marker-end: url(#arrG); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" fill="#ffffff"/>
+  <text x="30" y="38" class="h" style="font-size:20px">autonetops IBN — intent → contracts / invariants / signals → gates → artifacts → evidence</text>
+  <text x="30" y="58" class="s">Intent is stable; renderers change; expectations are the proof. Signal catalog joins what we compile to what we observe.</text>
+
+  <!-- column headers -->
+  <text x="30"   y="88" class="col">1 · ASK</text>
+  <text x="280"  y="88" class="col">2 · MODEL (SOURCE OF TRUTH)</text>
+  <text x="670"  y="88" class="col">3 · GATE &amp; COMPILE</text>
+  <text x="1000" y="88" class="col">4 · ARTIFACTS</text>
+  <text x="1230" y="88" class="col">5 · DELIVER &amp; OBSERVE</text>
+
+  <!-- ============ 1 ASK ============ -->
+  <rect x="30" y="105" width="220" height="95" class="ask"/>
+  <text x="42" y="126" class="t">Natural-language request</text>
+  <text x="42" y="146" class="s">“Customer C must reach its apps</text>
+  <text x="42" y="161" class="s">from corp-emea, max 200 prefixes,</text>
+  <text x="42" y="176" class="s">never leak to internet peers,</text>
+  <text x="42" y="191" class="s">page me if the session drops”</text>
+
+  <rect x="30" y="225" width="220" height="125" class="box"/>
+  <text x="42" y="246" class="t">Agent skill</text>
+  <text x="42" y="266" class="s">• reads schema + signal catalog</text>
+  <text x="42" y="282" class="s">• maps words → typed objects:</text>
+  <text x="52" y="298" class="xs">intent, contract, invariants, signals</text>
+  <text x="42" y="314" class="s">• reuses taxonomy (tenant/zone)</text>
+  <text x="42" y="330" class="s">• writes them on a branch</text>
+
+  <rect x="30" y="375" width="220" height="65" class="box"/>
+  <text x="42" y="396" class="t">Infrahub branch</text>
+  <text x="42" y="414" class="s">+ Proposed Change</text>
+  <text x="42" y="430" class="xs">review · checks · artifact diff</text>
+
+  <path d="M140,200 L140,223" class="flow"/>
+  <path d="M140,350 L140,373" class="flow"/>
+  <path d="M250,407 L278,407" class="flow"/>
+
+  <!-- ============ 2 MODEL ============ -->
+  <rect x="280" y="100" width="360" height="670" class="frame"/>
+  <text x="294" y="122" class="t">Infrahub — schemas/intent.yml</text>
+
+  <rect x="300" y="135" width="320" height="50" class="box"/>
+  <text x="312" y="156" class="t">IntentDefinition — the WHY</text>
+  <text x="312" y="174" class="s">owner · priority · domain · tenant · ticket</text>
+
+  <!-- contracts -->
+  <rect x="300" y="200" width="205" height="255" class="box"/>
+  <text x="312" y="220" class="t">Contracts</text>
+  <text x="312" y="235" class="xs">ACHIEVED BY · owned, cascade</text>
+  <text x="316" y="258" class="mono">RoutingContract</text>
+  <text x="316" y="272" class="xs">asn · afi · max-prefix · communities</text>
+  <text x="316" y="294" class="mono">ReachabilityContract</text>
+  <text x="316" y="308" class="xs">no expectations yet</text>
+  <text x="316" y="330" class="mono">SecurityContract › Rules</text>
+  <text x="316" y="344" class="xs">ACLs rendered, no evidence yet</text>
+  <text x="316" y="366" class="mono">ReliabilityContract</text>
+  <text x="316" y="380" class="xs">no expectations yet</text>
+  <text x="316" y="402" class="mono">ObservabilityContract</text>
+  <rect x="326" y="410" width="168" height="36" class="new"/>
+  <text x="334" y="426" class="mono">› Signals</text>
+  <text x="334" y="440" class="xs">signal id · condition · severity</text>
+
+  <!-- invariants / policies / waivers -->
+  <rect x="515" y="200" width="105" height="150" class="inv"/>
+  <text x="523" y="219" class="t">Invariants</text>
+  <text x="523" y="233" class="xs">GUARANTEED BY</text>
+  <text x="523" y="250" class="xs">no_leak</text>
+  <text x="523" y="262" class="xs">prefix_auth</text>
+  <text x="523" y="274" class="xs">no_default_orig</text>
+  <text x="523" y="286" class="xs">no_reorig</text>
+  <text x="523" y="298" class="xs">redundancy</text>
+  <text x="523" y="310" class="xs">capability</text>
+  <text x="523" y="322" class="xs">reach_preserved</text>
+  <text x="523" y="334" class="xs">oob_reach</text>
+
+  <rect x="515" y="360" width="105" height="45" class="box"/>
+  <text x="523" y="378" class="t" style="font-size:12px">Policies</text>
+  <text x="523" y="394" class="xs">change windows</text>
+
+  <rect x="515" y="413" width="105" height="42" class="box"/>
+  <text x="523" y="431" class="t" style="font-size:12px">Waivers</text>
+  <text x="523" y="446" class="xs">time-boxed, expiring</text>
+
+  <rect x="300" y="470" width="320" height="58" class="box"/>
+  <text x="312" y="490" class="t">Taxonomy (controlled vocabulary)</text>
+  <text x="312" y="508" class="s">Tenant WHO · Zone WHERE · Capability WITH WHAT</text>
+  <text x="312" y="521" class="xs">on DcimPlatform → selects renderer &amp; collector</text>
+
+  <rect x="300" y="540" width="320" height="50" class="box"/>
+  <text x="312" y="560" class="t">DCIM / IPAM anchors</text>
+  <text x="312" y="578" class="s">devices · platforms · interfaces · cables · prefixes · VRFs</text>
+
+  <!-- menu mock -->
+  <rect x="300" y="603" width="320" height="155" class="box"/>
+  <text x="312" y="622" class="t">Sidebar menu (menus/menu-intent.yml)</text>
+  <text x="316" y="642" class="mono">Intent</text>
+  <text x="316" y="657" class="mono"> ├ Intents</text>
+  <text x="316" y="672" class="mono"> ├ Contracts</text>
+  <rect x="322" y="678" width="150" height="16" class="new"/>
+  <text x="316" y="690" class="mono"> ├ Signals        ← new</text>
+  <text x="316" y="707" class="mono"> ├ Policies › Change Windows</text>
+  <text x="316" y="722" class="mono"> ├ Invariants</text>
+  <text x="316" y="737" class="mono"> ├ Waivers</text>
+  <text x="316" y="752" class="mono"> └ Taxonomy › Tenants·Zones·Capabilities</text>
+
+  <!-- ============ 3 GATE ============ -->
+  <rect x="670" y="100" width="300" height="230" class="frame"/>
+  <text x="684" y="122" class="t">Merge gate — checks/</text>
+  <text x="684" y="138" class="xs">invariant projections on the branch data</text>
+  <rect x="685" y="150" width="270" height="34" class="inv"/>
+  <text x="695" y="165" class="mono">contract_no_leak</text>
+  <text x="695" y="178" class="xs">← NoLeak: no export to a denied zone</text>
+  <rect x="685" y="190" width="270" height="34" class="inv"/>
+  <text x="695" y="205" class="mono">contract_prefix_authorization</text>
+  <text x="695" y="218" class="xs">← allowed ⊂ tenant VRFs (always runs)</text>
+  <rect x="685" y="230" width="270" height="34" class="inv"/>
+  <text x="695" y="245" class="mono">observability_capability</text>
+  <text x="695" y="258" class="xs">← every signal collectable on its PEs</text>
+  <rect x="685" y="270" width="270" height="44" class="owed"/>
+  <text x="695" y="286" class="mono">tenant_redundancy · oob_reachability</text>
+  <text x="695" y="300" class="xs">queries exist, checks not registered (owed)</text>
+  <text x="695" y="311" class="xs">no_default_orig / no_reorig: no check at all</text>
+
+  <!-- ============ 3 COMPILE ============ -->
+  <rect x="670" y="345" width="300" height="425" class="frame"/>
+  <text x="684" y="366" class="t">Compiler — transforms/</text>
+  <rect x="685" y="378" width="270" height="70" class="new"/>
+  <text x="695" y="396" class="t" style="font-size:12px">signal_catalog.py</text>
+  <text x="695" y="411" class="xs">signal id → metric · join labels (device, neighbor)</text>
+  <text x="695" y="424" class="xs">gNMI paths · cli_scrape · threshold field</text>
+  <text x="695" y="437" class="xs">factsPath for the change-time gate validator</text>
+
+  <rect x="685" y="460" width="270" height="40" class="box"/>
+  <text x="695" y="477" class="mono">device_config</text>
+  <text x="695" y="491" class="xs">RENDERERS[platform] · EOS view → arista_eos.j2</text>
+  <rect x="685" y="510" width="270" height="40" class="box" style="stroke:#0f172a;stroke-width:1.6"/>
+  <text x="695" y="527" class="mono">contract_expectations  = the IR</text>
+  <text x="695" y="541" class="xs">ranges · forbiddenActions · evidence</text>
+  <rect x="685" y="560" width="270" height="40" class="box"/>
+  <text x="695" y="577" class="mono">telemetry_collector</text>
+  <text x="695" y="591" class="xs">capability → gnmi | cli_scrape; tags device only</text>
+  <rect x="685" y="610" width="270" height="40" class="new"/>
+  <text x="695" y="627" class="mono">intent_series</text>
+  <text x="695" y="641" class="xs">projection of the IR → recording rules</text>
+  <rect x="685" y="660" width="270" height="40" class="box"/>
+  <text x="695" y="677" class="mono">prometheus_rules</text>
+  <text x="695" y="691" class="xs">alerts = raw telemetry ⋈ intent series</text>
+  <rect x="685" y="710" width="270" height="40" class="box"/>
+  <text x="695" y="727" class="mono">grafana_dashboard</text>
+  <text x="695" y="741" class="xs">panels use the same joins; leak watch by role</text>
+
+  <!-- IR → intent_series -->
+  <path d="M960,530 Q978,580 960,628" class="gflow"/>
+
+  <!-- model → gate / compiler -->
+  <path d="M640,168 L683,168" class="flow"/>
+  <text x="643" y="160" class="xs">checks</text>
+  <path d="M640,560 L668,560" class="flow"/>
+  <text x="642" y="552" class="xs">GQL</text>
+
+  <!-- invariant projections -->
+  <path d="M620,250 L652,250 L652,207 L683,207" class="pflow"/>
+  <path d="M620,320 L658,320 L658,530 L683,530" class="pflow"/>
+
+  <!-- ============ 4 ARTIFACTS ============ -->
+  <g>
+    <rect x="1000" y="460" width="200" height="40" class="box"/>
+    <text x="1012" y="477" class="mono">device-configuration</text>
+    <text x="1012" y="491" class="xs">per device · text/plain</text>
+    <rect x="1000" y="510" width="200" height="40" class="box"/>
+    <text x="1012" y="527" class="mono">contract-expectations</text>
+    <text x="1012" y="541" class="xs">per routing contract · YAML</text>
+    <rect x="1000" y="560" width="200" height="40" class="box"/>
+    <text x="1012" y="577" class="mono">telegraf-inputs</text>
+    <text x="1012" y="591" class="xs">per monitored device</text>
+    <rect x="1000" y="610" width="200" height="40" class="new"/>
+    <text x="1012" y="627" class="mono">intent-series</text>
+    <text x="1012" y="641" class="xs">per routing contract · new</text>
+    <rect x="1000" y="660" width="200" height="40" class="box"/>
+    <text x="1012" y="677" class="mono">prometheus-rules</text>
+    <text x="1012" y="691" class="xs">per observability contract</text>
+    <rect x="1000" y="710" width="200" height="40" class="box"/>
+    <text x="1012" y="727" class="mono">grafana-dashboard</text>
+    <text x="1012" y="741" class="xs">per tenant · JSON</text>
+  </g>
+  <path d="M955,480 L998,480" class="flow"/>
+  <path d="M955,530 L998,530" class="flow"/>
+  <path d="M955,580 L998,580" class="flow"/>
+  <path d="M955,630 L998,630" class="gflow"/>
+  <path d="M955,680 L998,680" class="flow"/>
+  <path d="M955,730 L998,730" class="flow"/>
+
+  <rect x="1000" y="345" width="200" height="100" class="owed"/>
+  <text x="1012" y="365" class="t" style="font-size:12px">Owed artifacts</text>
+  <text x="1012" y="383" class="xs">ReachabilityExpectations</text>
+  <text x="1012" y="397" class="xs">SecurityExpectations (ACLs)</text>
+  <text x="1012" y="411" class="xs">ReliabilityExpectations</text>
+  <text x="1012" y="425" class="xs">leak evidence (BMP)</text>
+  <text x="1012" y="439" class="xs">model-based (OpenConfig) configs</text>
+
+  <!-- ============ 5 DELIVER ============ -->
+  <rect x="1230" y="100" width="340" height="210" class="frame"/>
+  <text x="1244" y="122" class="t">autonetops_ibn — delivery</text>
+  <rect x="1245" y="135" width="310" height="50" class="box"/>
+  <text x="1255" y="153" class="mono">planner → orchestrator → ibnctl</text>
+  <text x="1255" y="169" class="xs">canary stages · change windows · blast radius · approvals</text>
+  <text x="1255" y="181" class="xs">drivers: eos · srlinux · netconf (format-aware)</text>
+  <rect x="1245" y="195" width="310" height="100" class="box" style="stroke:#0f172a;stroke-width:1.4"/>
+  <text x="1255" y="213" class="t" style="font-size:12px">Gate validator (change time)</text>
+  <text x="1255" y="230" class="xs">expectations vs get_facts() per stage</text>
+  <text x="1255" y="244" class="xs">pass · fail · unverifiable · pre_existing</text>
+  <text x="1255" y="258" class="xs">baseline before stage 1 → block regressions only</text>
+  <text x="1255" y="272" class="xs">today: sessions only; next: evidence.factsPath</text>
+  <text x="1255" y="286" class="xs">(catalog binding — step 3)</text>
+
+  <path d="M1200,480 L1212,480 L1212,160 L1243,160" class="flow"/>
+  <path d="M1200,530 L1222,530 L1222,245 L1243,245" class="flow"/>
+
+  <rect x="1230" y="330" width="340" height="62" class="box"/>
+  <text x="1244" y="350" class="t">Network (remote containerlab)</text>
+  <text x="1244" y="368" class="s">cEOS PEs · SR Linux CEs · IOL RR · FRR peer</text>
+  <text x="1244" y="383" class="xs">PE-EMEA-02 serves custc-ce-to-pe AND inet-peering-emea</text>
+  <path d="M1400,310 L1400,328" class="flow"/>
+
+  <!-- observe -->
+  <rect x="1230" y="410" width="340" height="360" class="frame"/>
+  <text x="1244" y="432" class="t">Evidence pipeline — monitoring/</text>
+  <text x="1244" y="450" class="xs">collectors emit only join keys (device, neighbor)</text>
+  <text x="1244" y="470" class="xs">intent labels are joined in Prometheus:</text>
+  <text x="1244" y="484" class="xs">→ one PE, N contracts, correct labels per neighbor</text>
+  <text x="1244" y="498" class="xs">→ thresholds are series, not rules</text>
+  <text x="1244" y="512" class="xs">→ stale = expected session with no evidence</text>
+
+  <rect x="1250" y="555" width="300" height="50" class="box"/>
+  <text x="1260" y="574" class="mono">telegraf  (gnmi · exec · ping)</text>
+  <text x="1260" y="592" class="xs">raw: bgp_session_*{device, neighbor}</text>
+  <path d="M1540,392 L1540,553" class="flow"/>
+  <text x="1488" y="540" class="xs">gNMI/CLI</text>
+
+  <rect x="1250" y="615" width="300" height="95" class="new"/>
+  <text x="1260" y="633" class="mono">Prometheus</text>
+  <text x="1260" y="649" class="xs">recording: intent_session_info · intent_threshold</text>
+  <text x="1260" y="665" class="xs">alert: raw * on(device,neighbor)</text>
+  <text x="1270" y="678" class="xs">group_left(contract,tenant) intent_session_info</text>
+  <text x="1270" y="691" class="xs">&gt; on(contract) intent_threshold{term=max_prefixes}</text>
+  <text x="1260" y="704" class="xs">stale: intent_session_info unless on(...) raw</text>
+  <path d="M1400,605 L1400,613" class="flow"/>
+
+  <path d="M1200,580 L1248,580" class="flow"/>
+  <path d="M1200,630 L1248,630" class="gflow"/>
+  <path d="M1200,680 L1248,680" class="flow"/>
+
+  <rect x="1250" y="720" width="145" height="40" class="box"/>
+  <text x="1260" y="738" class="mono">Alertmanager</text>
+  <text x="1260" y="752" class="xs">severity → paging</text>
+  <rect x="1405" y="720" width="145" height="40" class="box"/>
+  <text x="1415" y="738" class="mono">Grafana</text>
+  <text x="1415" y="752" class="xs">per-tenant dashboard</text>
+  <path d="M1200,730 L1215,730 L1215,765 L1477,765 L1477,762" class="flow"/>
+
+  <!-- ============ closed loop ============ -->
+  <path d="M1322,760 L1322,840 L16,840 L16,415 L28,415" class="flow" style="stroke:#d97706;stroke-width:1.8"/>
+  <text x="520" y="832" class="s" style="fill:#b45309;font-weight:600">closed loop: verdicts &amp; alerts cite derivesFrom → intent · drift becomes a new change, a waiver, or remediation</text>
+
+  <!-- ============ invariant explainer ============ -->
+  <rect x="30" y="460" width="220" height="310" class="inv"/>
+  <text x="42" y="482" class="t">What invariants turn into</text>
+  <text x="42" y="502" class="s">An invariant compiles to nothing</text>
+  <text x="42" y="516" class="s">on its own. It is projected onto</text>
+  <text x="42" y="530" class="s">two surfaces:</text>
+  <text x="42" y="552" class="t" style="font-size:12px">① merge time — checks/</text>
+  <text x="42" y="568" class="xs">evaluated against the branch data;</text>
+  <text x="42" y="581" class="xs">major/critical → block the PC,</text>
+  <text x="42" y="594" class="xs">warning → report (owed: today every</text>
+  <text x="42" y="607" class="xs">check blocks regardless of severity)</text>
+  <text x="42" y="629" class="t" style="font-size:12px">② runtime — expectations</text>
+  <text x="42" y="645" class="xs">forbiddenActions in the IR, then rules</text>
+  <text x="42" y="658" class="xs">(owed: forbiddenActions are strings no</text>
+  <text x="42" y="671" class="xs">evaluator reads yet)</text>
+  <text x="42" y="693" class="t" style="font-size:12px">③ waived — IntentWaiver</text>
+  <text x="42" y="709" class="xs">time-boxed exception, owner-approved</text>
+  <text x="42" y="731" class="xs">Scope gap: checks only see invariants</text>
+  <text x="42" y="744" class="xs">linked to the intent; global/domain</text>
+  <text x="42" y="757" class="xs">scope is ignored today.</text>
+
+  <!-- ============ legend ============ -->
+  <g transform="translate(30,880)">
+    <text x="0" y="0" class="t">Legend</text>
+    <path d="M70,-4 L120,-4" class="flow"/><text x="128" y="0" class="s">compile / data flow</text>
+    <path d="M260,-4 L310,-4" class="pflow"/><text x="318" y="0" class="s">invariant projection</text>
+    <path d="M460,-4 L510,-4" class="gflow"/><text x="518" y="0" class="s">signal-catalog path (step 1)</text>
+    <rect x="690" y="-14" width="40" height="16" class="new"/><text x="738" y="0" class="s">added in step 1</text>
+    <rect x="850" y="-14" width="40" height="16" class="inv"/><text x="898" y="0" class="s">invariant-related</text>
+    <rect x="1020" y="-14" width="40" height="16" class="owed"/><text x="1068" y="0" class="s">owed / not wired</text>
+    <rect x="1190" y="-14" width="40" height="16" class="ask"/><text x="1238" y="0" class="s">human / agent input</text>
+    <text x="0" y="30" class="xs">Repos: autonetops_infrahub (schema, checks, transforms, monitoring) · autonetops_ibn (planner, orchestrator, executor, validator). ADRs: autonetops_ibn 0015/0017 (vocabulary), this repo 0002 (signal catalog).</text>
+  </g>
+</svg>

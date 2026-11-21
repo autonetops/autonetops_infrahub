@@ -10,15 +10,15 @@
 #   network_devices         - every routing node (config artifacts)
 #   monitored_devices       - devices with telemetry requirements
 #   routing_contracts       - IntentRoutingContract nodes (targeted checks +
-#                             expectation artifacts)
+#                             expectation + intent-series artifacts)
 #   observability_contracts - IntentObservabilityContract nodes (alert-rule
 #                             artifacts)
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
 # SD-WAN disabled 2026-11-18 (schema removed from Infrahub to cut load); uncomment to re-enable.
-schemas:
-  - schemas/dcim_bgp.yml
+#schemas:
+#  - schemas/dcim_bgp.yml
 #   - schemas/sdwan.yml
 
 menus:
@@ -80,6 +80,9 @@ python_transforms:
   - name: contract_expectations
     class_name: ContractExpectationsTransform
     file_path: "transforms/contract_expectations.py"
+  - name: intent_series
+    class_name: IntentSeriesTransform
+    file_path: "transforms/intent_series.py"
   - name: telemetry_collector
     class_name: TelemetryCollectorTransform
     file_path: "transforms/telemetry_collector.py"
@@ -115,6 +118,17 @@ artifact_definitions:
     content_type: text/plain
     targets: routing_contracts
     transformation: contract_expectations
+    parameters:
+      contract: name__value
+
+  # what the intent EXPECTS, as Prometheus recording rules
+  # (intent_session_info / intent_threshold) - the join target of every
+  # contract-scoped alert rule; see transforms/signal_catalog.py
+  - name: intent-series
+    artifact_name: intent-series
+    content_type: text/plain
+    targets: routing_contracts
+    transformation: intent_series
     parameters:
       contract: name__value
 

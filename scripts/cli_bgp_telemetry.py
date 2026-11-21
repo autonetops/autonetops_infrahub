@@ -14,7 +14,7 @@ the moment a signal is scoped to ``ce_devices``.
 Emits influx line protocol on stdout, normalized to the same metric
 names the gNMI pipeline produces:
 
-    bgp_session,device=pe-emea-01,neighbor=10.84.255.2,contract=custc-ce-to-pe \
+    bgp_session,device=pe-emea-01,neighbor=10.84.255.2 \
         state_established=1i,prefixes_received=3i,prefixes_sent=12i
 
 Credentials come from SSH_USER / SSH_PASSWORD environment variables

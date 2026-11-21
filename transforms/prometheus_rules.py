@@ -17,14 +17,31 @@ metrics and inherits its tenant; a signal watching nothing is fleet-wide
 also encode the freshness expectation: stale evidence is itself an
 alert, because unobserved compliance is not compliance.
 
+Rules are JOINS (signal catalog v1): collectors emit raw facts keyed by
+device+neighbor, and every contract-scoped expression is joined against
+the compiled ``intent_session_info`` / ``intent_threshold`` series
+(intent_series.py) on the catalog's join keys. So:
+
+  - labels are correct per neighbor even when a PE serves N contracts
+  - thresholds are DATA (``intent_threshold``) - a max_prefixes change
+    recompiles a series, not this file
+  - staleness is per expected session ("expected but not observed"),
+    plus a guard for the expectation series themselves being absent
+
 Targeted artifact: one rules file per member of ``observability_contracts``.
 """
 
+import pathlib
 import re
+import sys
 
 import yaml
 
 from infrahub_sdk.transforms import InfrahubTransform
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import signal_catalog  # noqa: E402
+from signal_catalog import INFO_METRIC, THRESHOLD_METRIC, selector  # noqa: E402
 
 
 def _v(attr):
@@ -39,16 +56,51 @@ def _edges(rel):
     return [e["node"] for e in rel["edges"]] if rel else []
 
 
+class _NoAliasDumper(yaml.SafeDumper):
+    """Shared label dicts must render inline, not as &id001 anchors."""
+
+    def ignore_aliases(self, data):
+        return True
+
+
 def _parse_duration(condition):
     m = re.search(r"down_for\s*>\s*(\d+)s", condition or "")
     return f"{m.group(1)}s" if m else "60s"
 
 
-def _parse_threshold(condition, contract_max):
+def _parse_threshold(condition):
+    """-> ("contract", None) when the condition defers to the contract's
+    max_prefixes term, ("literal", n) for a literal bound, (None, None)."""
     if condition and "max_prefixes" in condition:
-        return contract_max
+        return "contract", None
     m = re.search(r"count\s*>\s*(\d+)", condition or "")
-    return int(m.group(1)) if m else None
+    return ("literal", int(m.group(1))) if m else (None, None)
+
+
+def _joined(metric, contract):
+    """Raw session metric with intent labels joined on (device, neighbor)."""
+    on = ", ".join(signal_catalog.SESSION_JOIN)
+    return (
+        f"{metric} * on({on}) group_left(contract, tenant, neighbor_device) "
+        f"{INFO_METRIC}{selector({'contract': contract})}"
+    )
+
+
+def _bound(joined, condition, contract, max_v4, signal_name):
+    kind, literal = _parse_threshold(condition)
+    if kind == "literal":
+        return f"{joined} > {literal}"
+    if kind == "contract":
+        if max_v4 is None:
+            # a bound that resolves to nothing is an unwatched contract -
+            # fail the artifact instead of compiling a rule that never fires
+            raise ValueError(
+                f"signal '{signal_name}' compares against max_prefixes but "
+                f"contract '{contract}' defines no max_prefixes_ipv4"
+            )
+        thr = selector({"contract": contract, "term": "max_prefixes", "afi": "ipv4"})
+        return f"{joined} > on(contract) group_left() {THRESHOLD_METRIC}{thr}"
+    return None
 
 
 def _parse_loss(condition):
@@ -70,8 +122,9 @@ class PrometheusRulesTransform(InfrahubTransform):
         own_tenant = _tenant_of(obs)
 
         rules = []
+        guarded = set()  # contracts whose expectation series we already guard
         for signal in _edges(obs.get("signals")):
-            sig = _v(signal["signal"])
+            sig = signal_catalog.spec(_v(signal["signal"]))
             severity = _v(signal["severity"])
             condition = _v(signal["condition"])
             freq = _v(signal["frequency_seconds"]) or 30
@@ -91,53 +144,81 @@ class PrometheusRulesTransform(InfrahubTransform):
                 "severity": severity,
                 "contract": name or obs_name,
                 "tenant": tenant_name,
+                "signal": sig.id,
                 "managed_by": "infrahub-intent",
             }
+            stale_labels = {**labels, "severity": "sev3"}
 
-            if sig == "bgp_session_state" and name:
+            if sig.id == "device_reachability":
                 rules.append({
-                    "alert": f"{name}-bgp-session-down",
-                    "expr": (
-                        f'bgp_session_state_established{{contract="{name}"}} == 0'
-                    ),
-                    "for": _parse_duration(condition),
+                    "alert": f"{obs_name}-device-unreachable",
+                    "expr": f"{sig.metric} > {_parse_loss(condition)}",
+                    "for": f"{freq * 2}s",
                     "labels": labels,
                     "annotations": {
-                        "summary": f"BGP session for contract {name} is down",
+                        "summary": (
+                            "Device {{ $labels.device }} stopped answering on the "
+                            "OOB management plane - the fleet-management-plane "
+                            "intent is violated"
+                        ),
                         "intent": condition or "",
                     },
                 })
-            elif sig == "bgp_route_count" and name:
-                threshold = _parse_threshold(condition, max_v4)
-                if threshold is not None:
-                    rules.append({
-                        "alert": f"{name}-route-count-exceeded",
-                        "expr": (
-                            f'bgp_session_prefixes_received{{contract="{name}"}} '
-                            f"> {threshold}"
-                        ),
-                        "for": "0s",
-                        "labels": labels,
-                        "annotations": {
-                            "summary": (
-                                f"Contract {name} received more prefixes than "
-                                f"authorized ({threshold})"
-                            ),
-                            "intent": condition or "",
-                        },
-                    })
-            elif sig == "policy_export_violation" and name:
-                threshold = _parse_threshold(condition, max_v4) or 0
                 rules.append({
-                    "alert": f"{name}-export-violation",
-                    "expr": (
-                        f'bgp_session_prefixes_sent{{contract="{name}"}} '
-                        f"> {threshold}"
+                    "alert": f"{obs_name}-{sig.id}-telemetry-stale",
+                    "expr": f"absent({sig.metric})",
+                    "for": f"{freq * 2}s",
+                    "labels": stale_labels,
+                    "annotations": {
+                        "summary": (
+                            f"No fresh evidence for signal {sig.id} - "
+                            f"compliance cannot be claimed"
+                        ),
+                    },
+                })
+                continue
+
+            if sig.scope != "session" or not name:
+                # device-scoped contract signals (interface_errors) have no
+                # predicate grammar yet - owed with typed predicates (step 2)
+                continue
+
+            joined = _joined(sig.metric, name)
+            if sig.id == "bgp_session_state":
+                rules.append({
+                    "alert": f"{name}-bgp-session-down",
+                    "expr": f"{joined} == 0",
+                    "for": _parse_duration(condition),
+                    "labels": labels,
+                    "annotations": {
+                        "summary": (
+                            f"BGP session {{{{ $labels.device }}}} -> "
+                            f"{{{{ $labels.neighbor }}}} for contract {name} is down"
+                        ),
+                        "intent": condition or "",
+                    },
+                })
+            elif sig.id in ("bgp_route_count", "policy_export_violation"):
+                expr = _bound(joined, condition, name, max_v4, _v(signal["name"]))
+                if expr is None:
+                    raise ValueError(
+                        f"signal '{_v(signal['name'])}': condition "
+                        f"'{condition}' has no recognizable bound"
+                    )
+                received = sig.id == "bgp_route_count"
+                rules.append({
+                    "alert": (
+                        f"{name}-route-count-exceeded" if received
+                        else f"{name}-export-violation"
                     ),
+                    "expr": expr,
                     "for": "0s",
                     "labels": labels,
                     "annotations": {
                         "summary": (
+                            f"Contract {name} received more prefixes than "
+                            f"authorized on {{{{ $labels.device }}}}"
+                            if received else
                             f"Routes exported on contract {name} exceed the "
                             f"authorized set - possible leak of tenant "
                             f"{tenant_name} routes"
@@ -145,55 +226,42 @@ class PrometheusRulesTransform(InfrahubTransform):
                         "intent": condition or "",
                     },
                 })
-            elif sig == "device_reachability":
-                threshold = _parse_loss(condition)
-                rules.append({
-                    "alert": f"{obs_name}-device-unreachable",
-                    "expr": f"ping_percent_packet_loss > {threshold}",
-                    "for": f"{freq * 2}s",
-                    "labels": labels,
-                    "annotations": {
-                        "summary": (
-                            "A device stopped answering on the OOB management "
-                            "plane - the fleet-management-plane intent is violated"
-                        ),
-                        "intent": condition or "",
-                    },
-                })
-                # ping freshness has its own shape
-                rules.append({
-                    "alert": f"{obs_name}-{sig}-telemetry-stale",
-                    "expr": "absent(ping_percent_packet_loss)",
-                    "for": f"{freq * 2}s",
-                    "labels": {**labels, "severity": "sev3"},
-                    "annotations": {
-                        "summary": (
-                            f"No fresh evidence for signal {sig} - "
-                            f"compliance cannot be claimed"
-                        ),
-                    },
-                })
-                continue
 
-            if not name:
-                continue
-
-            # freshness: two missed collection cycles means the evidence is
-            # stale and the intent can no longer be claimed as satisfied
+            # freshness, per expected session: two missed collection cycles
+            # and the intent can no longer be claimed as satisfied
+            on = ", ".join(signal_catalog.SESSION_JOIN)
             rules.append({
-                "alert": f"{name}-{sig}-telemetry-stale",
-                "expr": f'absent(bgp_session_state_established{{contract="{name}"}})'
-                if sig == "bgp_session_state"
-                else f'absent(bgp_session_prefixes_received{{contract="{name}"}})',
+                "alert": f"{name}-{sig.id}-telemetry-stale",
+                "expr": (
+                    f"{INFO_METRIC}{selector({'contract': name})} "
+                    f"unless on({on}) {sig.metric}"
+                ),
                 "for": f"{freq * 2}s",
-                "labels": {**labels, "severity": "sev3"},
+                "labels": stale_labels,
                 "annotations": {
                     "summary": (
-                        f"No fresh evidence for signal {sig} on contract {name} - "
+                        f"Session {{{{ $labels.device }}}} -> "
+                        f"{{{{ $labels.neighbor }}}} is expected by contract "
+                        f"{name} but signal {sig.id} is not observed - "
                         f"compliance cannot be claimed"
                     ),
                 },
             })
+            if name not in guarded:
+                guarded.add(name)
+                rules.append({
+                    "alert": f"{name}-expectations-missing",
+                    "expr": f"absent({INFO_METRIC}{selector({'contract': name})})",
+                    "for": "5m",
+                    "labels": stale_labels,
+                    "annotations": {
+                        "summary": (
+                            f"No compiled expectation series for contract {name} "
+                            f"(intent-series artifact not delivered) - every "
+                            f"alert for it is blind"
+                        ),
+                    },
+                })
 
         doc = {
             "groups": [
@@ -203,4 +271,7 @@ class PrometheusRulesTransform(InfrahubTransform):
                 }
             ]
         }
-        return yaml.safe_dump(doc, sort_keys=False, default_flow_style=False)
+        return yaml.dump(
+            doc, Dumper=_NoAliasDumper, sort_keys=False,
+            default_flow_style=False, width=4096,
+        )

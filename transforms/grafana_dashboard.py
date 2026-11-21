@@ -7,8 +7,25 @@ contract's authorized maximum, leak evidence and OOB reachability.
 """
 
 import json
+import pathlib
+import sys
 
 from infrahub_sdk.transforms import InfrahubTransform
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import signal_catalog  # noqa: E402
+from signal_catalog import INFO_METRIC, selector  # noqa: E402
+
+
+def _joined(signal_id, match):
+    """Raw metric with intent labels joined in (collectors carry no
+    contract labels - see intent_series.py)."""
+    metric = signal_catalog.spec(signal_id).metric
+    on = ", ".join(signal_catalog.SESSION_JOIN)
+    return (
+        f"{metric} * on({on}) group_left(contract, tenant, role) "
+        f"{INFO_METRIC}{match}"
+    )
 
 
 def _v(attr):
@@ -77,13 +94,13 @@ class GrafanaDashboardTransform(InfrahubTransform):
             max_v4 = _v(contract.get("max_prefixes_ipv4"))
             panels.append(_panel(
                 pid, f"{cname}: BGP session state",
-                f'bgp_session_state_established{{contract="{cname}"}}',
+                _joined("bgp_session_state", selector({"contract": cname})),
                 panel_type="stat", y=y, x=0,
             ))
             pid += 1
             panels.append(_panel(
                 pid, f"{cname}: prefixes received (max {max_v4})",
-                f'bgp_session_prefixes_received{{contract="{cname}"}}',
+                _joined("bgp_route_count", selector({"contract": cname})),
                 threshold=max_v4, y=y, x=12,
             ))
             pid += 1
@@ -93,13 +110,16 @@ class GrafanaDashboardTransform(InfrahubTransform):
         # watched on the peering contracts that could carry the leak
         panels.append(_panel(
             pid, "Export evidence toward peering/transit (leak watch)",
-            'bgp_session_prefixes_sent{contract=~".*peer.*|.*transit.*"}',
+            # selected by contract ROLE (compiled into the info series),
+            # not by guessing from contract names
+            _joined("policy_export_violation",
+                    '{role=~"internet_peering|transit"}'),
             y=y, x=0,
         ))
         pid += 1
         panels.append(_panel(
             pid, "OOB reachability (packet loss %)",
-            "ping_percent_packet_loss",
+            signal_catalog.spec("device_reachability").metric,
             threshold=50, y=y, x=12,
         ))
 

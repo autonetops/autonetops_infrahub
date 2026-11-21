@@ -10,6 +10,7 @@ piece land:
     device-configuration  -> build/configs/<device>.cfg
     telegraf-inputs       -> monitoring/telegraf/telegraf.d/<device>.conf
     prometheus-rules      -> monitoring/prometheus/rules/<contract>.yml
+    intent-series         -> monitoring/prometheus/rules/intent-series-<contract>.yml
     grafana-dashboard     -> monitoring/grafana/dashboards/<tenant>.json
     contract-expectations -> build/expectations/<contract>.yml
 
@@ -34,7 +35,12 @@ DESTINATIONS = {
     "prometheus-rules": (REPO_ROOT / "monitoring" / "prometheus" / "rules", "yml"),
     "grafana-dashboard": (REPO_ROOT / "monitoring" / "grafana" / "dashboards", "json"),
     "contract-expectations": (REPO_ROOT / "build" / "expectations", "yml"),
+    # recording rules the alert rules join against - same rule_files glob
+    "intent-series": (REPO_ROOT / "monitoring" / "prometheus" / "rules", "yml"),
 }
+
+# filename prefix where two definitions share a directory
+PREFIXES = {"intent-series": "intent-series-"}
 
 QUERY = """
 query {
@@ -79,7 +85,8 @@ def main():
             content = http.get(f"/api/storage/object/{storage_id}")
             content.raise_for_status()
 
-            path = directory / f"{target}.{extension}"
+            prefix = PREFIXES.get(definition, "")
+            path = directory / f"{prefix}{target}.{extension}"
             path.write_text(content.text)
             print(f"  {definition:22s} {target:20s} -> {path.relative_to(REPO_ROOT)}")
 

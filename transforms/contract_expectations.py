@@ -15,15 +15,31 @@ Notice what this artifact encodes:
     compliance - including HOW each device is observed (gnmi vs
     cli_scrape), derived from platform capabilities.
 
-A validator (execution layer, out of scope here) consumes this file and
-compares it against Prometheus/telegraf evidence continuously.
+This artifact is the compiler's single intermediate representation:
+every observability output is a projection of ``build_expectations()``,
+never a second reading of the intent graph -
+
+    intent_series.py    -> intent_session_info / intent_threshold series
+    gate validator      -> change-time verdicts from get_facts()
+    prometheus_rules.py -> continuous verdicts (joins the series above)
+
+Evidence bindings (metric names, join labels, facts paths) come from the
+signal catalog, so what the expectation demands and what the monitoring
+stack reads are the same strings by construction.
 """
 
+import pathlib
 import re
+import sys
 
 import yaml
 
 from infrahub_sdk.transforms import InfrahubTransform
+
+# sibling import that works under Infrahub's loader and the orchestrator's
+# spec_from_file_location loader alike
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import signal_catalog  # noqa: E402
 
 MIN_UPTIME_SECONDS = 300
 
@@ -52,18 +68,6 @@ def _iface_ips(iface):
     return [_v(ip["address"]) for ip in _edges(ips)] if ips else []
 
 
-def _collector_for(capabilities):
-    """Capability-driven collector selection - the same switchboard the
-    telemetry compiler uses, recorded here as an expectation."""
-    if "gnmi" in capabilities:
-        return "gnmi"
-    if "snmp" in capabilities:
-        return "snmp"
-    if "ssh_cli" in capabilities:
-        return "cli_scrape"
-    return "unobservable"
-
-
 def _derive_sessions(contract_node):
     """Same rule as the config renderer: sessions are a consequence of the
     contract plus the modeled cabling, never modeled by hand."""
@@ -90,121 +94,146 @@ def _derive_sessions(contract_node):
                     "interface": _v(iface["name"]),
                     "neighbor_ip": remote_ips[0].split("/")[0],
                     "neighbor_device": _v(remote_dev["name"]),
-                    "collector": _collector_for(capabilities),
+                    "collector": signal_catalog.collector_for(capabilities),
                 })
     return sessions
+
+
+def build_expectations(data):
+    """Query result -> ContractExpectations dict (the IR)."""
+    contract = data["IntentRoutingContract"]["edges"][0]["node"]
+    name = _v(contract["name"])
+    # the hierarchy above the contract (ADR-0015/0017): the contract
+    # hangs straight off its intent; the invariants that guarantee the
+    # intent are referenced on the same node
+    intent = _node(contract.get("intent")) or {}
+    tenant = _node(intent.get("tenant"))
+    invariants = _edges(intent.get("invariants"))
+
+    sessions = []
+    for s in _derive_sessions(contract):
+        sessions.append({
+            "device": s["device"],
+            "neighborIp": s["neighbor_ip"],
+            "neighborDevice": s["neighbor_device"],
+            "peerAsn": _v(contract["peer_asn"]),
+            "afiSafis": _v(contract["afi_safis"]) or [],
+            "observedVia": s["collector"],
+            "mustBe": {
+                "sessionState": "established",
+                "minUptimeSeconds": MIN_UPTIME_SECONDS,
+            },
+        })
+
+    max_prefixes = {}
+    if _v(contract.get("max_prefixes_ipv4")):
+        max_prefixes["ipv4"] = _v(contract["max_prefixes_ipv4"])
+    if _v(contract.get("max_prefixes_ipv6")):
+        max_prefixes["ipv6"] = _v(contract["max_prefixes_ipv6"])
+
+    must_include = (
+        (_v(contract.get("require_communities")) or [])
+        + (_v(contract.get("attach_communities")) or [])
+    )
+    deny_zones = [
+        _v(z["name"]) for z in _edges(contract.get("export_deny_zones"))
+    ]
+
+    forbidden_actions = []
+    for inv in invariants:
+        itype = _invariant_type(inv["__typename"])
+        if itype == "no_leak" and tenant:
+            forbidden_actions.append(
+                f"export_prefixes_from_tenant({_v(tenant['name'])})"
+            )
+        elif itype == "no_default_origination":
+            forbidden_actions.append("originate_default_route_to_peer")
+        elif itype == "no_reorigination":
+            forbidden_actions.append("reoriginate_learned_routes")
+
+    telemetry = []
+    alerting = []
+    for signal in _edges(data["IntentObservabilitySignal"]):
+        watched = _node(signal.get("watches"))
+        if not watched or _v(watched["name"]) != name:
+            continue
+        freq = _v(signal["frequency_seconds"]) or 30
+        sig = signal_catalog.spec(_v(signal["signal"]))
+        threshold = {
+            afi: _v(contract.get(fld))
+            for afi, fld in sig.threshold.items()
+            if _v(contract.get(fld)) is not None
+        }
+        telemetry.append({
+            "signal": sig.id,
+            "direction": _v(signal.get("direction")),
+            # stale evidence is no evidence: two missed cycles = drift
+            "freshnessSeconds": freq * 2,
+            # where the evidence lives - same strings the collectors,
+            # the compiled series and the alert rules use
+            "evidence": {
+                "catalog": signal_catalog.CATALOG_VERSION,
+                "metric": sig.metric,
+                "joinOn": list(sig.join),
+                "factsPath": sig.facts_path,
+                "threshold": (
+                    {"bound": "max", "byAfi": threshold} if threshold else None
+                ),
+            },
+        })
+        alerting.append({
+            "signal": _v(signal["signal"]),
+            "severity": _v(signal["severity"]),
+            "condition": _v(signal["condition"]),
+        })
+
+    expectations = {
+        "apiVersion": "expectations.networking.autonetops/v1",
+        "kind": "ContractExpectations",
+        "metadata": {
+            "name": name,
+            "intent": _v(intent.get("name")),
+            "domain": _v(intent.get("domain")),
+            "description": _v(intent.get("description")),
+            "tenant": _v(tenant["name"]) if tenant else None,
+            "zone": _v((_node(contract.get("zone")) or {}).get("name")),
+            "role": _v(contract.get("role")),
+            # every compiled check cites the intent it derives from
+            # (ADR-0015 decision 8)
+            "derivesFrom": (
+                f"infrahub://Intent/{_v(intent.get('name'))}"
+                f"/contract/{name}"
+            ),
+        },
+        "spec": {
+            "bgp": {
+                "sessions": sessions,
+                "routePolicy": {
+                    "inbound": {
+                        "maxPrefixes": max_prefixes or None,
+                        "allowedPrefixes": [
+                            _v(p["prefix"])
+                            for p in _edges(contract.get("allowed_prefixes"))
+                        ],
+                        "mustIncludeCommunities": must_include,
+                    },
+                    "outbound": {
+                        "forbiddenZones": deny_zones,
+                        "forbiddenActions": forbidden_actions,
+                    },
+                },
+            },
+            "telemetry": {"required": telemetry},
+            "alerting": alerting,
+        },
+    }
+    return expectations
 
 
 class ContractExpectationsTransform(InfrahubTransform):
     query = "contract_expectations"
 
     async def transform(self, data):
-        contract = data["IntentRoutingContract"]["edges"][0]["node"]
-        name = _v(contract["name"])
-        # the hierarchy above the contract (ADR-0015/0017): the contract
-        # hangs straight off its intent; the invariants that guarantee the
-        # intent are referenced on the same node
-        intent = _node(contract.get("intent")) or {}
-        tenant = _node(intent.get("tenant"))
-        invariants = _edges(intent.get("invariants"))
-
-        sessions = []
-        for s in _derive_sessions(contract):
-            sessions.append({
-                "device": s["device"],
-                "neighborIp": s["neighbor_ip"],
-                "neighborDevice": s["neighbor_device"],
-                "peerAsn": _v(contract["peer_asn"]),
-                "afiSafis": _v(contract["afi_safis"]) or [],
-                "observedVia": s["collector"],
-                "mustBe": {
-                    "sessionState": "established",
-                    "minUptimeSeconds": MIN_UPTIME_SECONDS,
-                },
-            })
-
-        max_prefixes = {}
-        if _v(contract.get("max_prefixes_ipv4")):
-            max_prefixes["ipv4"] = _v(contract["max_prefixes_ipv4"])
-        if _v(contract.get("max_prefixes_ipv6")):
-            max_prefixes["ipv6"] = _v(contract["max_prefixes_ipv6"])
-
-        must_include = (
-            (_v(contract.get("require_communities")) or [])
-            + (_v(contract.get("attach_communities")) or [])
+        return yaml.safe_dump(
+            build_expectations(data), sort_keys=False, default_flow_style=False
         )
-        deny_zones = [
-            _v(z["name"]) for z in _edges(contract.get("export_deny_zones"))
-        ]
-
-        forbidden_actions = []
-        for inv in invariants:
-            itype = _invariant_type(inv["__typename"])
-            if itype == "no_leak" and tenant:
-                forbidden_actions.append(
-                    f"export_prefixes_from_tenant({_v(tenant['name'])})"
-                )
-            elif itype == "no_default_origination":
-                forbidden_actions.append("originate_default_route_to_peer")
-            elif itype == "no_reorigination":
-                forbidden_actions.append("reoriginate_learned_routes")
-
-        telemetry = []
-        alerting = []
-        for signal in _edges(data["IntentObservabilitySignal"]):
-            watched = _node(signal.get("watches"))
-            if not watched or _v(watched["name"]) != name:
-                continue
-            freq = _v(signal["frequency_seconds"]) or 30
-            telemetry.append({
-                "signal": _v(signal["signal"]),
-                "direction": _v(signal.get("direction")),
-                # stale evidence is no evidence: two missed cycles = drift
-                "freshnessSeconds": freq * 2,
-            })
-            alerting.append({
-                "signal": _v(signal["signal"]),
-                "severity": _v(signal["severity"]),
-                "condition": _v(signal["condition"]),
-            })
-
-        expectations = {
-            "apiVersion": "expectations.networking.autonetops/v1",
-            "kind": "ContractExpectations",
-            "metadata": {
-                "name": name,
-                "intent": _v(intent.get("name")),
-                "domain": _v(intent.get("domain")),
-                "description": _v(intent.get("description")),
-                "tenant": _v(tenant["name"]) if tenant else None,
-                "zone": _v((_node(contract.get("zone")) or {}).get("name")),
-                # every compiled check cites the intent it derives from
-                # (ADR-0015 decision 8)
-                "derivesFrom": (
-                    f"infrahub://Intent/{_v(intent.get('name'))}"
-                    f"/contract/{name}"
-                ),
-            },
-            "spec": {
-                "bgp": {
-                    "sessions": sessions,
-                    "routePolicy": {
-                        "inbound": {
-                            "maxPrefixes": max_prefixes or None,
-                            "allowedPrefixes": [
-                                _v(p["prefix"])
-                                for p in _edges(contract.get("allowed_prefixes"))
-                            ],
-                            "mustIncludeCommunities": must_include,
-                        },
-                        "outbound": {
-                            "forbiddenZones": deny_zones,
-                            "forbiddenActions": forbidden_actions,
-                        },
-                    },
-                },
-                "telemetry": {"required": telemetry},
-                "alerting": alerting,
-            },
-        }
-        return yaml.safe_dump(expectations, sort_keys=False, default_flow_style=False)
