@@ -1,0 +1,126 @@
+# ---------------------------------------------------------------------------
+# Certificate model.
+#
+#   CertificateGenericCertificate -> CertificateCertificate: an X.509 cert
+#                                    (subject/issuer DN, SANs, serial, key size,
+#                                    validation/expiration, revocation status)
+#   CertificateGenericClient      -> anything that presents certificates;
+#                                    today only ServiceVIP (schemas/loadbalancer.yml)
+#
+# DERIVED from the live Infrahub schema (main) on 2026-11-21: this model had
+# no source file on disk. Server-side defaults, inherited fields and the
+# auto-generated group/profile/template relationships are omitted.
+# Sidebar entries: menus/menu-loadbalancer.yml.
+#
+# Requires these kinds from schema files not in this repo yet:
+#   none
+# ---------------------------------------------------------------------------
+version: '1.0'
+generics:
+  - name: GenericCertificate
+    namespace: Certificate
+    description: Generic Certificate
+    include_in_menu: false
+    human_friendly_id:
+      - serial_number__value
+    uniqueness_constraints:
+      - - serial_number__value
+    attributes:
+      - name: alternative_name
+        kind: List
+        optional: true
+        parameters:
+          regex: null
+        order_weight: 70
+      - name: validation
+        kind: DateTime
+        optional: true
+        order_weight: 50
+      - name: serial_number
+        kind: Text
+        unique: true
+        order_weight: 20
+      - name: issuer_dn
+        kind: Text
+        label: Issuer DN
+        optional: true
+        order_weight: 15
+      - name: contact_address
+        kind: Email
+        optional: true
+        order_weight: 80
+      - name: key_size
+        kind: Dropdown
+        optional: true
+        choices:
+          - name: ec
+            description: ''
+            color: '#ed6a5a'
+            label: Elliptic Curve
+          - name: '4096'
+            description: ''
+            color: '#f4f1bb'
+            label: '4096'
+          - name: '3072'
+            description: ''
+            color: '#9bc1bc'
+            label: '3072'
+          - name: '2048'
+            description: ''
+            color: '#5ca4a9'
+            label: '2048'
+          - name: '1024'
+            description: ''
+            color: '#e6ebe0'
+            label: '1024'
+        order_weight: 60
+      - name: request_number
+        kind: Email
+        optional: true
+        order_weight: 90
+      - name: expiration
+        kind: DateTime
+        order_weight: 12
+      - name: revocation_status
+        kind: Dropdown
+        optional: true
+        choices:
+          - name: Revoked
+            description: ''
+            color: '#ed6a5a'
+            label: Revoked
+          - name: Non-Revoked
+            description: ''
+            color: '#f4f1bb'
+            label: Non-Revoked
+        order_weight: 30
+      - name: subject_dn
+        kind: Text
+        order_weight: 10
+    relationships:
+      - name: client
+        peer: CertificateGenericClient
+        identifier: certificategenericcertificate__certificategenericclient
+        on_delete: no-action
+        order_weight: 11000
+  - name: GenericClient
+    namespace: Certificate
+    description: Generic Client that have a certificate
+    include_in_menu: false
+    relationships:
+      - name: certificates
+        peer: CertificateGenericCertificate
+        identifier: certificategenericcertificate__certificategenericclient
+        on_delete: no-action
+        order_weight: 1000
+nodes:
+  - name: Certificate
+    namespace: Certificate
+    icon: mdi:file-certificate-outline
+    include_in_menu: false
+    inherit_from:
+      - CertificateGenericCertificate
+    human_friendly_id:
+      - serial_number__value
+    uniqueness_constraints:
+      - - serial_number__value

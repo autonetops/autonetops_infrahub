@@ -1,0 +1,1316 @@
+# ---------------------------------------------------------------------------
+# Load-balancer model (F5 BIG-IP and others).
+#
+#   LoadbalancerGenericDevice  -> DcimLoadBalancer (also a DcimGenericDevice)
+#   LoadbalancerGenericCluster -> LoadbalancerCluster: groups devices; pools and
+#                                 VIPs attach to a device ONLY through a cluster
+#   LoadbalancerGenericPool    -> LoadbalancerPool, owns PoolMembers (Component)
+#   LoadbalancerGenericVIP     -> ServiceVIP (also a CertificateGenericClient,
+#                                 see schemas/certificate.yml)
+#   LoadbalancerGenericHealthCheck -> LoadbalancerHealthCheck
+#
+# DERIVED from the live Infrahub schema (main) on 2026-11-21: this model had
+# no source file on disk. Server-side defaults, inherited fields and the
+# auto-generated group/profile/template relationships are omitted.
+#
+# Changes on top of the live schema (v2, 2026-11-21) so the model can drive an
+# F5 (transforms/f5_config.py renders the LTM config from it):
+#   - Pool, VIP and SNAT-pool names are unique per cluster + partition (HFID
+#     cluster / partition / name), not across every load balancer; `cluster`
+#     is required on pools and VIPs (it is their only path back to a device).
+#   - New `partition` attribute (default "Common") on pools, VIPs, SNAT pools.
+#   - Pool-member names are unique within their pool (F5: <address>:<port>).
+#     Members have NO HFID: it may only reach one hop, and pool names are no
+#     longer unique alone. `human_friendly_id: []` must stay explicit - an
+#     absent key keeps the stored HFID (and a globally unique member name).
+#   - VIP `hostname` is no longer unique (an empty hostname counted as a value,
+#     so only one VIP could lack one).
+#   - VIP `protocol` gains `any` (F5 ip-protocol any).
+#   - Deleting a VIP no longer deletes its IP address (vip_ip on_delete
+#     cascade -> no-action).
+#   - ServiceVIP gains attached_profiles, irules, vlans, vlans_enabled,
+#     translate_address, translate_port and `snat_pool`.
+#   - New kind LoadbalancerSnatPool (ltm snatpool): cluster, addresses.
+# Sidebar entries: menus/menu-loadbalancer.yml.
+#
+# Requires these kinds from schema files not in this repo yet:
+#   DcimGenericDevice, DcimInterface, DcimPlatform, FirewallApp, FirewallDomain, FirewallEnv, FirewallRole, FirewallZoneTag, IpamIPAddress, LocationHosting, RoutingAutonomousSystemGeneric
+# ---------------------------------------------------------------------------
+version: '1.0'
+generics:
+  - name: GenericDevice
+    namespace: Loadbalancer
+    description: Generic Load Balancer device with vendor-agnostic pool and VIP management.
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+    attributes:
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+    relationships:
+      - name: cluster
+        peer: LoadbalancerGenericCluster
+        kind: Attribute
+        description: HA cluster this device belongs to
+        identifier: cluster__members
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 2000
+      - name: asn
+        peer: RoutingAutonomousSystemGeneric
+        kind: Attribute
+        label: ASN
+        description: ASN to use for BGP peering.
+        identifier: loadbalancergenericdevice__routingautonomoussystemgeneric
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 3000
+  - name: GenericCluster
+    namespace: Loadbalancer
+    description: Generic Load Balancer cluster/HA pair for high availability configurations.
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+    attributes:
+      - name: name
+        kind: Text
+        description: Cluster name
+        unique: true
+        order_weight: 1000
+      - name: ha_mode
+        kind: Dropdown
+        label: HA Mode
+        description: High availability configuration mode
+        optional: true
+        choices:
+          - name: n_plus_one
+            description: Multiple active nodes with one spare
+            color: '#d2b4de'
+            label: N+1
+          - name: active_standby
+            description: One active node, one standby for failover
+            color: '#a9cce3'
+            label: Active/Standby
+          - name: active_active
+            description: Both nodes actively process traffic
+            color: '#a9dfbf'
+            label: Active/Active
+        order_weight: 1200
+      - name: failover_order
+        kind: Text
+        description: Comma-separated list of device names in failover priority order
+        optional: true
+        order_weight: 1400
+      - name: sync_group
+        kind: Text
+        description: Configuration sync group name (F5 device-group)
+        optional: true
+        order_weight: 1300
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: vips
+        peer: LoadbalancerGenericVIP
+        label: Virtual IPs
+        description: VIPs hosted on this cluster
+        identifier: cluster__vips
+        on_delete: no-action
+        order_weight: 8000
+      - name: members
+        peer: LoadbalancerGenericDevice
+        label: Cluster Members
+        description: Load balancer devices in this cluster
+        identifier: cluster__members
+        on_delete: no-action
+        order_weight: 6000
+      - name: location
+        peer: LocationHosting
+        kind: Attribute
+        description: Primary location of the cluster
+        identifier: loadbalancergenericcluster__locationhosting
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1600
+      - name: pools
+        peer: LoadbalancerGenericPool
+        description: Pools managed by this cluster
+        identifier: cluster__pools
+        on_delete: no-action
+        order_weight: 7000
+      - name: snat_pools
+        peer: LoadbalancerSnatPool
+        label: SNAT Pools
+        description: SNAT pools defined on this cluster
+        identifier: cluster__snat_pools
+        on_delete: no-action
+        order_weight: 9500
+  - name: GenericHealthCheck
+    namespace: Loadbalancer
+    description: Generic health check/monitor configuration for load balancer pools.
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+    attributes:
+      - name: type_checks
+        kind: Dropdown
+        description: Health check protocol type
+        choices:
+          - name: udp
+            description: UDP health check
+            color: '#aec6cf'
+            label: UDP
+          - name: tcp
+            description: TCP connection check
+            color: '#d8e4bc'
+            label: TCP
+          - name: icmp
+            description: ICMP ping check
+            color: '#b4cfb0'
+            label: ICMP/Ping
+          - name: https
+            description: HTTPS health check
+            color: '#98d8c8'
+            label: HTTPS
+          - name: http
+            description: HTTP health check
+            color: '#a9dfbf'
+            label: HTTP
+        order_weight: 1100
+      - name: name
+        kind: Text
+        description: Health check profile name
+        unique: true
+        order_weight: 1000
+      - name: timeout
+        kind: Number
+        label: Timeout (seconds)
+        description: Timeout for health check response
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1300
+      - name: fall
+        kind: Number
+        label: Fall Threshold
+        description: Failed checks required to mark member as DOWN
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1500
+      - name: interval
+        kind: Number
+        label: Interval (seconds)
+        description: Time between health checks
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1200
+      - name: receive_string
+        kind: Text
+        description: Expected string in response to mark member as healthy
+        optional: true
+        order_weight: 1900
+      - name: rise
+        kind: Number
+        label: Rise Threshold
+        description: Successful checks required to mark member as UP
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1400
+      - name: send_string
+        kind: Text
+        description: 'String to send for health check (e.g., ''GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n'')'
+        optional: true
+        order_weight: 1800
+    relationships:
+      - name: pools
+        peer: LoadbalancerGenericPool
+        label: Used by Pools
+        identifier: pool__health_check
+        on_delete: no-action
+        order_weight: 9000
+  - name: GenericPool
+    namespace: Loadbalancer
+    description: Generic pool/backend group for load balancing (analogous to F5 pool, HAProxy backend).
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    uniqueness_constraints:
+      - - cluster
+        - partition__value
+        - name__value
+    order_by:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    attributes:
+      - name: load_balancing_method
+        kind: Dropdown
+        description: Load balancing algorithm
+        optional: true
+        choices:
+          - name: round-robin
+            description: Distributes traffic evenly across members
+            color: '#a9cce3'
+            label: Round Robin
+        order_weight: 1200
+      - name: partition
+        kind: Text
+        description: Administrative partition (F5 /<partition>/<name>)
+        optional: true
+        default_value: Common
+        order_weight: 1005
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: slow_ramp_time
+        kind: Number
+        label: Slow Ramp Time (seconds)
+        description: Time to gradually increase traffic to new members (F5 feature)
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1400
+      - name: name
+        kind: Text
+        description: Pool name (e.g., 'web-servers-pool')
+        unique: false
+        order_weight: 1000
+      - name: min_active_members
+        kind: Number
+        label: Minimum Active Members
+        description: Minimum number of active members required for pool to be considered available
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1500
+      - name: status
+        kind: Dropdown
+        label: Availability
+        description: Operational availability reported by health monitoring (F5 stats availabilityState).
+        optional: true
+        choices:
+          - name: unknown
+            description: No monitor result yet, or availability could not be determined.
+            color: '#bfbfbf'
+            label: Unknown
+          - name: offline
+            description: Monitored and failing health checks (down).
+            color: '#ff7f7f'
+            label: Offline
+          - name: available
+            description: Monitored and passing health checks.
+            color: '#7fbf7f'
+            label: Available
+        order_weight: 1300
+      - name: admin_enabled
+        kind: Boolean
+        label: Enabled
+        description: Administrative state configured on the device. True = enabled, False = administratively
+          disabled (F5 enabled/disabled).
+        optional: true
+        order_weight: 1280
+    relationships:
+      - name: vips
+        peer: LoadbalancerGenericVIP
+        label: Virtual IPs
+        description: Virtual IP services using this pool
+        identifier: vip__pool
+        on_delete: no-action
+        order_weight: 2000
+      - name: health_check
+        peer: LoadbalancerGenericHealthCheck
+        kind: Attribute
+        identifier: pool__health_check
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 9000
+      - name: members
+        peer: LoadbalancerGenericPoolMember
+        kind: Component
+        label: Pool Members
+        identifier: pool__members
+        on_delete: cascade
+        order_weight: 8000
+      - name: cluster
+        peer: LoadbalancerGenericCluster
+        kind: Attribute
+        label: LB Cluster
+        description: Cluster managing this pool
+        identifier: cluster__pools
+        cardinality: one
+        on_delete: no-action
+        order_weight: 10000
+        optional: false
+  - name: GenericPoolMember
+    namespace: Loadbalancer
+    description: A member of a load balancer pool (backend server/node).
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id: []
+    uniqueness_constraints:
+      - - pool
+        - name__value
+    order_by:
+      - pool__name__value
+      - name__value
+    attributes:
+      - name: ratio
+        kind: Number
+        description: Ratio for ratio-based load balancing (F5)
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1350
+      - name: status
+        kind: Dropdown
+        label: Availability
+        description: Operational availability reported by health monitoring (F5 member state).
+        optional: true
+        choices:
+          - name: unknown
+            description: No monitor result yet, or availability could not be determined.
+            color: '#bfbfbf'
+            label: Unknown
+          - name: offline
+            description: Monitored and failing health checks (down).
+            color: '#ff7f7f'
+            label: Offline
+          - name: available
+            description: Monitored and passing health checks (up).
+            color: '#7fbf7f'
+            label: Available
+        order_weight: 1400
+      - name: weight
+        kind: Number
+        description: Weight for weighted load balancing (1-100)
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1200
+      - name: port
+        kind: Number
+        description: Service port on the backend server
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1100
+      - name: description
+        kind: Text
+        description: Description of the pool member
+        optional: true
+        order_weight: 1530
+      - name: admin_enabled
+        kind: Boolean
+        label: Enabled
+        description: Administrative state of the member. True = enabled, False = administratively disabled
+          (F5 session user-disabled).
+        optional: true
+        order_weight: 1390
+      - name: compliant
+        kind: Boolean
+        description: Whether the pool member is compliant
+        optional: true
+        order_weight: 1500
+      - name: name
+        kind: Text
+        description: 'Member name, unique within its pool (F5: <address>:<port>)'
+        unique: false
+        order_weight: 1000
+      - name: node_matches_expected_config
+        kind: Boolean
+        description: Whether the node matches the expected configuration
+        optional: true
+        order_weight: 1510
+      - name: connection_limit
+        kind: Number
+        description: Maximum connections allowed to this member (0 = unlimited)
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1380
+      - name: priority
+        kind: Number
+        description: Priority for failover (lower = higher priority)
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1300
+      - name: backend_vip_f5
+        kind: Text
+        label: Backend VIP (F5)
+        description: VIP reference from the backend perspective (F5-specific)
+        optional: true
+        order_weight: 1520
+    relationships:
+      - name: pool
+        peer: LoadbalancerGenericPool
+        kind: Parent
+        label: Parent Pool
+        identifier: pool__members
+        cardinality: one
+        optional: false
+        min_count: 1
+        max_count: 1
+        on_delete: no-action
+        order_weight: 900
+      - name: ip_address
+        peer: IpamIPAddress
+        kind: Attribute
+        label: IP Address
+        description: IP address of the backend server
+        identifier: pool_member__ip
+        cardinality: one
+        max_count: 1
+        on_delete: cascade
+        order_weight: 1050
+  - name: GenericVIP
+    namespace: Loadbalancer
+    description: Generic Virtual IP service definition for load balancing.
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    uniqueness_constraints:
+      - - cluster
+        - partition__value
+        - name__value
+    order_by:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    attributes:
+      - name: hostname
+        kind: Text
+        description: FQDN served by the VIP (optional)
+        optional: true
+        unique: false
+        regex: (?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9_-]{1,63}(?<!-))|((?!-)[a-zA-Z0-9_-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63})$)
+        parameters:
+          regex: (?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9_-]{1,63}(?<!-))|((?!-)[a-zA-Z0-9_-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63})$)
+          min_length: null
+          max_length: null
+        order_weight: 1010
+      - name: partition
+        kind: Text
+        description: Administrative partition (F5 /<partition>/<name>)
+        optional: true
+        default_value: Common
+        order_weight: 1005
+      - name: port
+        kind: Number
+        description: Listening port for the VIP
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1300
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: protocol
+        kind: Dropdown
+        description: Protocol for the VIP service
+        optional: true
+        choices:
+          - name: udp
+            description: Layer 4 UDP mode
+            color: '#aec6cf'
+            label: UDP
+          - name: tcp
+            description: Layer 4 TCP mode
+            color: '#a9cce3'
+            label: TCP
+          - name: https
+            description: Layer 7 HTTPS mode
+            color: '#98d8c8'
+            label: HTTPS
+          - name: http
+            description: Layer 7 HTTP mode
+            color: '#a9dfbf'
+            label: HTTP
+          - name: any
+            description: Any IP protocol (F5 ip-protocol any)
+            color: '#d5dbdb'
+            label: Any
+        order_weight: 1200
+      - name: source_address_filter
+        kind: IPNetwork
+        description: Source-address restriction on the VIP listener (F5 virtual 'source'). Default 0.0.0.0/0
+          (or ::/0) means no restriction.
+        optional: true
+        order_weight: 1465
+      - name: route_domain
+        kind: Number
+        description: F5 route domain ID for the VIP destination IP. Null = default domain.
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1460
+      - name: admin_enabled
+        kind: Boolean
+        label: Enabled
+        description: Administrative state of the virtual server. True = enabled, False = administratively
+          disabled (F5 enabled/disabled).
+        optional: true
+        order_weight: 1390
+      - name: exposition
+        kind: Dropdown
+        description: Cluster network zone
+        optional: true
+        choices:
+          - name: internal
+            description: ''
+            color: '#a9cce3'
+            label: Internal
+          - name: external
+            description: ''
+            color: '#d2b4de'
+            label: external
+          - name: dmz
+            description: ''
+            color: '#a9dfbf'
+            label: DMZ
+        order_weight: 1150
+      - name: name
+        kind: Text
+        description: VIP service name
+        unique: false
+        order_weight: 1000
+      - name: status
+        kind: Dropdown
+        label: Availability
+        description: Operational availability reported by health monitoring (F5 stats availabilityState).
+        optional: true
+        choices:
+          - name: unknown
+            description: No monitor result yet, or availability could not be determined.
+            color: '#bfbfbf'
+            label: Unknown
+          - name: offline
+            description: Monitored and failing health checks (down).
+            color: '#ff7f7f'
+            label: Offline
+          - name: available
+            description: Monitored and passing health checks.
+            color: '#7fbf7f'
+            label: Available
+        order_weight: 1400
+      - name: cname
+        kind: Text
+        label: CNAME
+        description: Comma-separated list of VIP CNAME
+        optional: true
+        order_weight: 1020
+    relationships:
+      - name: vip_role
+        peer: FirewallRole
+        kind: Attribute
+        label: Role
+        description: VIP role
+        identifier: vip__role
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1600
+      - name: cluster
+        peer: LoadbalancerGenericCluster
+        kind: Attribute
+        label: LB Cluster
+        description: Cluster hosting this VIP
+        identifier: cluster__vips
+        cardinality: one
+        on_delete: no-action
+        order_weight: 1550
+        optional: false
+      - name: vip_ip
+        peer: IpamIPAddress
+        kind: Attribute
+        label: Virtual IP Address
+        identifier: vip__ip
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1050
+      - name: vip_env
+        peer: FirewallEnv
+        kind: Attribute
+        label: Environment
+        description: VIP Environment
+        identifier: vip__env
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1750
+      - name: vip_app
+        peer: FirewallApp
+        kind: Attribute
+        label: Application
+        description: VIP application
+        identifier: vip__app
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1650
+      - name: vip_tag
+        peer: FirewallZoneTag
+        kind: Attribute
+        label: Zone Tag
+        description: VIP Zone Tag
+        identifier: vip__tag
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1800
+      - name: pool
+        peer: LoadbalancerGenericPool
+        kind: Attribute
+        label: Backend Pool
+        identifier: vip__pool
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1500
+      - name: vip_domain
+        peer: FirewallDomain
+        kind: Attribute
+        label: Domain
+        description: Domain VIP
+        identifier: vip__domain
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1700
+nodes:
+  - name: LoadBalancer
+    namespace: Dcim
+    label: Load Balancer
+    icon: mdi:scale-balance
+    include_in_menu: false
+    inherit_from:
+      - LoadbalancerGenericDevice
+      - DcimGenericDevice
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+    generate_template: true
+    attributes:
+      - name: status
+        kind: Dropdown
+        choices:
+          - name: provisioning
+            description: In the process of being set up and configured.
+            color: '#ffff7f'
+            label: Provisioning
+          - name: maintenance
+            description: Undergoing routine maintenance or repairs.
+            color: '#ffd27f'
+            label: Maintenance
+          - name: drained
+            description: Temporarily taken out of service.
+            color: '#bfbfbf'
+            label: Drained
+          - name: active
+            description: Fully operational and currently in service.
+            color: '#7fbf7f'
+            label: Active
+        order_weight: 1100
+  - name: Cluster
+    namespace: Loadbalancer
+    label: LB Cluster
+    description: Load Balancer HA cluster/pair
+    icon: eos-icons:cluster-management
+    include_in_menu: false
+    inherit_from:
+      - LoadbalancerGenericCluster
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+  - name: HealthCheck
+    namespace: Loadbalancer
+    label: Health Check
+    icon: tabler:checkup-list
+    include_in_menu: false
+    inherit_from:
+      - LoadbalancerGenericHealthCheck
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+  - name: Pool
+    namespace: Loadbalancer
+    icon: mdi:server-network
+    include_in_menu: false
+    inherit_from:
+      - LoadbalancerGenericPool
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    uniqueness_constraints:
+      - - cluster
+        - partition__value
+        - name__value
+    order_by:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    attributes:
+      - name: load_balancing_method
+        kind: Dropdown
+        description: Load balancing algorithm
+        optional: true
+        choices:
+          - name: weighted-least-connections-node
+            description: Sends traffic to the node with the best ratio of active connections to weight
+            color: '#e74c3c'
+            label: Weighted Least Connections (Node)
+          - name: weighted-least-connections-member
+            description: Sends traffic to the member with the best ratio of active connections to weight
+            color: '#f1c40f'
+            label: Weighted Least Connections (Member)
+          - name: round-robin
+            description: Distributes traffic evenly across members
+            color: '#a9cce3'
+            label: Round Robin
+          - name: ratio-session
+            description: Distributes sessions proportionally based on defined ratio weights
+            color: '#76d7c4'
+            label: Ratio (Session)
+          - name: ratio-node
+            description: Distributes traffic proportionally based on defined weights at the node level
+            color: '#c39bd3'
+            label: Ratio (Node)
+          - name: ratio-member
+            description: Distributes traffic proportionally based on defined weights at the member level
+            color: '#f0b27a'
+            label: Ratio (Member)
+          - name: ratio-least-connections-node
+            description: Combines ratio weights with least connections logic at the node level
+            color: '#85c1e9'
+            label: Ratio Least Connections (Node)
+          - name: ratio-least-connections-member
+            description: Combines ratio weights with least connections logic at the member level
+            color: '#abebc6'
+            label: Ratio Least Connections (Member)
+          - name: predictive-node
+            description: Uses observed trends to predict the best performing node for upcoming traffic
+            color: '#f9cba7'
+            label: Predictive (Node)
+          - name: predictive-member
+            description: Uses observed trends to predict the best performing member for upcoming traffic
+            color: '#d7bde2'
+            label: Predictive (Member)
+          - name: observed-node
+            description: Ranks nodes based on a combination of connection and response rate over time
+            color: '#d5dbdb'
+            label: Observed (Node)
+          - name: observed-member
+            description: Ranks members based on a combination of connection and response rate over time
+            color: '#a3e4d7'
+            label: Observed (Member)
+          - name: least-sessions
+            description: Sends traffic to the member with the fewest active sessions
+            color: '#aed6f1'
+            label: Least Sessions
+          - name: least-connections-node
+            description: Sends traffic to the node with the fewest active connections across all services
+            color: '#f1948a'
+            label: Least Connections (Node)
+          - name: least-connections-member
+            description: Sends traffic to the member with the fewest active connections
+            color: '#fad7a0'
+            label: Least Connections (Member)
+          - name: fastest-node
+            description: Sends traffic to the node with the fastest response time across all services
+            color: '#f9e79f'
+            label: Fastest Node
+          - name: fastest-app-response
+            description: Sends traffic to the member with the fastest application response time
+            color: '#afc7f2'
+            label: Fastest App Response
+          - name: dynamic-ratio-node
+            description: Dynamically adjusts ratio based on real-time node performance data
+            color: '#d2b4de'
+            label: Dynamic Ratio (Node)
+          - name: dynamic-ratio-member
+            description: Dynamically adjusts ratio based on real-time member performance data
+            color: '#a9dfbf'
+            label: Dynamic Ratio (Member)
+        order_weight: 1200
+      - name: route_domains
+        kind: Text
+        description: Route domains of the VIPs using this pool (computed from attached VIPs).
+        optional: true
+        read_only: true
+        computed_attribute:
+          kind: TransformPython
+          transform: PoolRouteDomains
+        order_weight: 1250
+  - name: PoolMember
+    namespace: Loadbalancer
+    label: Pool Member
+    icon: mdi:server
+    include_in_menu: false
+    inherit_from:
+      - LoadbalancerGenericPoolMember
+    display_label: '{{ name__value }}'
+    human_friendly_id: []
+    uniqueness_constraints:
+      - - pool
+        - name__value
+    order_by:
+      - pool__name__value
+      - name__value
+  - name: VIP
+    namespace: Service
+    label: VIP Service
+    description: A Virtual IP service that distributes network traffic to backend pools.
+    icon: carbon:floating-ip
+    include_in_menu: false
+    inherit_from:
+      - LoadbalancerGenericVIP
+      - CertificateGenericClient
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    uniqueness_constraints:
+      - - cluster
+        - partition__value
+        - name__value
+    order_by:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    attributes:
+      - name: server_ssl_profile
+        kind: Text
+        label: SSL Profile (server)
+        description: Comma-separated list of server ssl profile names
+        optional: true
+        order_weight: 2300
+      - name: client_http_profile
+        kind: Text
+        label: HTTP Profile (client)
+        description: Comma-separated list of client http profile names
+        optional: true
+        order_weight: 2150
+      - name: apm_enabled
+        kind: Boolean
+        label: APM Enabled
+        description: Whether F5 Access Policy Manager is configured for this VIP
+        optional: true
+        order_weight: 2050
+      - name: apm_policy_name
+        kind: Text
+        label: APM Policy Name
+        description: Name of the F5 APM policy applied to this VIP
+        optional: true
+        order_weight: 2060
+      - name: client_ssl_profile
+        kind: Text
+        label: SSL Profile (client)
+        description: Comma-separated list of client ssl profile names
+        optional: true
+        order_weight: 2250
+      - name: server_http_profile
+        kind: Text
+        label: HTTP Profile (server)
+        description: Comma-separated list of server http profile names
+        optional: true
+        order_weight: 2200
+      - name: persistence_cookie_name
+        kind: Text
+        description: Name of the persistence cookie (when using cookie persistence)
+        optional: true
+        order_weight: 1960
+      - name: impact
+        kind: Dropdown
+        optional: true
+        choices:
+          - name: standard_p2
+            description: ''
+            color: '#a9dfbf'
+            label: Standard P2
+          - name: non_critical_p3
+            description: ''
+            color: '#d2b4de'
+            label: Non critical P3
+          - name: critical_p1
+            description: ''
+            color: '#a9cce3'
+            label: Critical P1
+          - name: critical_p0
+            description: ''
+            color: '#7fbf7f'
+            label: Critical P0
+        order_weight: 2450
+      - name: virtual_server_type
+        kind: Dropdown
+        description: F5 virtual server type / data-path mode.
+        optional: true
+        choices:
+          - name: stateless
+            description: Stateless forwarding (no connection tracking).
+            color: '#c9a9e3'
+            label: Stateless
+          - name: standard
+            description: Standard L4/L7 proxy (default TMOS virtual).
+            color: '#7fbf7f'
+            label: Standard
+          - name: reject
+            description: Explicit reject — drops matching traffic.
+            color: '#ff7f7f'
+            label: Reject
+          - name: performance_l4
+            description: Hardware-accelerated L4 fast path (FastL4 profile).
+            color: '#d2b4de'
+            label: Performance L4
+          - name: performance_http
+            description: Hardware-accelerated HTTP fast path (FastHTTP profile).
+            color: '#afc7f2'
+            label: Performance HTTP
+          - name: message_routing
+            description: Message routing virtual (Diameter, SIP MRF).
+            color: '#cdeacc'
+            label: Message Routing
+          - name: ipsec_tunnel
+            description: IPsec tunnel virtual.
+            color: '#607078'
+            label: IPsec Tunnel
+          - name: internal
+            description: Internal virtual, referenced by other configs (e.g. iRules), not externally bound.
+            color: '#bfbfbf'
+            label: Internal
+          - name: forwarding_l2
+            description: Layer-2 forwarding.
+            color: '#a9dfbf'
+            label: Forwarding (L2)
+          - name: forwarding_ip
+            description: IP-layer forwarding without load balancing.
+            color: '#a9cce3'
+            label: Forwarding (IP)
+          - name: dhcp_relay
+            description: DHCP relay virtual.
+            color: '#ffd27f'
+            label: DHCP Relay
+        order_weight: 1350
+      - name: persistence_timeout
+        kind: Number
+        label: Persistence Timeout (seconds)
+        description: Duration to maintain session persistence
+        optional: true
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1950
+      - name: confidentiality
+        kind: Dropdown
+        label: Confidentiality of Data
+        optional: true
+        choices:
+          - name: secret
+            description: ''
+            color: '#d2b4de'
+            label: Secret
+          - name: restricted
+            description: ''
+            color: '#a9cce3'
+            label: Restricted
+          - name: internal
+            description: ''
+            color: '#7fbf7f'
+            label: Internal
+          - name: confidential
+            description: ''
+            color: '#a9dfbf'
+            label: Confidential
+        order_weight: 2400
+      - name: one_connect_profile
+        kind: Text
+        label: OneConnect Profile
+        description: Connection pooler for back-end servers
+        optional: true
+        order_weight: 2350
+      - name: persistence_type
+        kind: Dropdown
+        description: Session persistence method
+        optional: true
+        choices:
+          - name: universal
+            description: Universal persistence (F5)
+            color: '#afc7f2'
+            label: Universal
+          - name: ssl_session
+            description: Persist using SSL session ID
+            color: '#d2b4de'
+            label: SSL Session ID
+          - name: source_ip
+            description: Persist based on client IP address
+            color: '#a9cce3'
+            label: Source IP
+          - name: none
+            description: No session persistence
+            color: '#bfbfbf'
+            label: None
+          - name: cookie
+            description: Persist using HTTP cookie
+            color: '#a9dfbf'
+            label: Cookie
+        order_weight: 1900
+      - name: snat_type
+        kind: Dropdown
+        label: SNAT Type
+        description: Source NAT configuration
+        optional: true
+        choices:
+          - name: snat_pool
+            description: Use a SNAT pool
+            color: '#a9cce3'
+            label: SNAT Pool
+          - name: none
+            description: No SNAT
+            color: '#bfbfbf'
+            label: None
+          - name: automap
+            description: Use self IP addresses for SNAT
+            color: '#a9dfbf'
+            label: Automap
+        order_weight: 2100
+      - name: attached_profiles
+        kind: List
+        optional: true
+        order_weight: 2100
+        description: Profiles on the virtual, full paths (e.g. /Common/fastL4), added to the *_profile
+          fields
+      - name: irules
+        kind: List
+        label: iRules
+        optional: true
+        order_weight: 2110
+        description: iRules attached to the virtual, in evaluation order (full paths)
+      - name: vlans
+        kind: List
+        label: VLANs
+        optional: true
+        order_weight: 2120
+        description: VLANs the virtual listens on (full paths); empty = all VLANs
+      - name: vlans_enabled
+        kind: Boolean
+        label: VLANs Enabled
+        optional: true
+        default_value: true
+        order_weight: 2130
+        description: 'True: listen only on `vlans`; false: listen on every VLAN except `vlans`'
+      - name: translate_address
+        kind: Boolean
+        optional: true
+        default_value: true
+        order_weight: 2140
+        description: Translate the destination address to the pool member (F5 translate-address)
+      - name: translate_port
+        kind: Boolean
+        optional: true
+        default_value: true
+        order_weight: 2150
+        description: Translate the destination port to the pool member port (F5 translate-port)
+    relationships:
+      - name: snat_pool
+        peer: LoadbalancerSnatPool
+        kind: Attribute
+        label: SNAT Pool
+        description: Source-translation pool, used when snat_type is snat_pool
+        identifier: vip__snat_pool
+        cardinality: one
+        on_delete: no-action
+        order_weight: 2000
+  - name: SnatPool
+    namespace: Loadbalancer
+    label: SNAT Pool
+    description: Source-address translation pool (F5 ltm snatpool).
+    icon: mdi:ip-network-outline
+    include_in_menu: false
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    uniqueness_constraints:
+      - - cluster
+        - partition__value
+        - name__value
+    order_by:
+      - cluster__name__value
+      - partition__value
+      - name__value
+    attributes:
+      - name: name
+        kind: Text
+        order_weight: 1000
+      - name: partition
+        kind: Text
+        description: Administrative partition (F5 /<partition>/<name>)
+        optional: true
+        default_value: Common
+        order_weight: 1005
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+    relationships:
+      - name: cluster
+        peer: LoadbalancerGenericCluster
+        kind: Attribute
+        label: LB Cluster
+        identifier: cluster__snat_pools
+        cardinality: one
+        optional: false
+        on_delete: no-action
+        order_weight: 1200
+      - name: addresses
+        peer: IpamIPAddress
+        kind: Attribute
+        label: Translation Addresses
+        description: Source addresses connections are translated to
+        identifier: snat_pool__addresses
+        direction: outbound
+        on_delete: no-action
+        order_weight: 1300
+      - name: vips
+        peer: ServiceVIP
+        label: VIP Services
+        identifier: vip__snat_pool
+        on_delete: no-action
+        order_weight: 1400
+extensions:
+  nodes:
+    - kind: FirewallApp
+      relationships:
+        - name: vip_service
+          peer: ServiceVIP
+          label: VIP Services
+          description: VIP(s) having this app
+          identifier: vip__app
+          on_delete: no-action
+          order_weight: 1700
+    - kind: FirewallDomain
+      relationships:
+        - name: vip_service
+          peer: ServiceVIP
+          label: VIP Services
+          description: VIP(s) having this domain
+          identifier: vip__domain
+          on_delete: no-action
+          order_weight: 1700
+    - kind: FirewallEnv
+      relationships:
+        - name: vip_service
+          peer: ServiceVIP
+          label: VIP Services
+          description: VIP(s) having this env
+          identifier: vip__env
+          on_delete: no-action
+          order_weight: 1700
+    - kind: FirewallRole
+      relationships:
+        - name: vip_service
+          peer: ServiceVIP
+          label: VIP Services
+          description: VIP(s) having this role
+          identifier: vip__role
+          on_delete: no-action
+          order_weight: 1620
+    - kind: FirewallZoneTag
+      relationships:
+        - name: vip_service
+          peer: ServiceVIP
+          label: VIP Services
+          description: VIP(s) having this Zone Tag
+          identifier: vip__tag
+          on_delete: no-action
+          order_weight: 1700
+    - kind: IpamIPAddress
+      relationships:
+        - name: vip_service
+          peer: ServiceVIP
+          label: VIP Services
+          description: VIP(s) servicing this IP
+          identifier: vip__ip
+          on_delete: no-action
+          order_weight: 1620
+        - name: pool_member
+          peer: LoadbalancerPoolMember
+          description: Pool member using this IP
+          identifier: pool_member__ip
+          on_delete: no-action
+          order_weight: 1650

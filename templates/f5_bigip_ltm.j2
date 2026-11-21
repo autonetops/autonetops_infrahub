@@ -1,0 +1,110 @@
+{#
+  F5 BIG-IP LTM configuration, bigip.conf (tmsh) syntax.
+  View built by transforms/f5_config.py; every decision is made there.
+  Apply with: tmsh load sys config merge file <this file>   (merge: creates/updates, never deletes)
+#}
+{% if os_version %}
+#TMSH-VERSION: {{ os_version }}
+{% endif %}
+# {{ device }} (cluster {{ cluster }}) - rendered from Infrahub, do not edit on the box
+
+{% for m in monitors %}
+ltm monitor {{ m.type }} {{ m.path }} {
+    defaults-from {{ m.defaults_from }}
+{% for key, value in m.settings %}
+    {{ key }} {{ value }}
+{% endfor %}
+}
+{% endfor %}
+{% for n in nodes %}
+ltm node {{ n.path }} {
+    address {{ n.address }}
+}
+{% endfor %}
+{% for p in pools %}
+ltm pool {{ p.path }} {
+{% for key, value in p.settings %}
+    {{ key }} {{ value }}
+{% endfor %}
+{% if p.members %}
+    members {
+{% for m in p.members %}
+        {{ m.path }} {
+            address {{ m.address }}
+{% for key, value in m.settings %}
+            {{ key }} {{ value }}
+{% endfor %}
+        }
+{% endfor %}
+    }
+{% endif %}
+}
+{% endfor %}
+{% for s in snatpools %}
+ltm snatpool {{ s.path }} {
+{% if s.description %}
+    description {{ s.description }}
+{% endif %}
+    members {
+{% for m in s.members %}
+        {{ m }}
+{% endfor %}
+    }
+}
+{% endfor %}
+{% for v in virtuals %}
+ltm virtual {{ v.path }} {
+{% if v.description %}
+    description {{ v.description }}
+{% endif %}
+    destination {{ v.destination }}
+{% if v.disabled %}
+    disabled
+{% endif %}
+    ip-protocol {{ v.ip_protocol }}
+    mask {{ v.mask }}
+{% if v.persist %}
+    persist {
+        {{ v.persist }} {
+            default yes
+        }
+    }
+{% endif %}
+{% if v.pool %}
+    pool {{ v.pool }}
+{% endif %}
+    profiles {
+{% for path, context in v.profiles %}
+        {{ path }} {
+{% if context %}
+            context {{ context }}
+{% endif %}
+        }
+{% endfor %}
+    }
+{% if v.rules %}
+    rules {
+{% for r in v.rules %}
+        {{ r }}
+{% endfor %}
+    }
+{% endif %}
+    source {{ v.source }}
+    source-address-translation {
+{% if v.translation.pool %}
+        pool {{ v.translation.pool }}
+{% endif %}
+        type {{ v.translation.type }}
+    }
+    translate-address {{ v.translate_address }}
+    translate-port {{ v.translate_port }}
+{% if v.vlans %}
+    vlans {
+{% for vl in v.vlans %}
+        {{ vl }}
+{% endfor %}
+    }
+    {{ v.vlans_mode }}
+{% endif %}
+}
+{% endfor %}

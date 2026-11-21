@@ -1,0 +1,104 @@
+# yaml-language-server:
+#   $schema=https://schema.infrahub.app/infrahub/menu/latest.json
+#
+# Sidebar navigation for the load-balancer and certificate models
+# (schemas/loadbalancer.yml, schemas/certificate.yml):
+#
+#   Load Balancer
+#     ├── Load Balancer Clusters (LoadbalancerCluster)
+#     ├── Load Balancers         (DcimLoadBalancer)
+#     ├── VIP Services           (ServiceVIP)
+#     ├── Pools                  (LoadbalancerPool)
+#     ├── Pool Members           (LoadbalancerPoolMember)
+#     ├── SNAT Pools             (LoadbalancerSnatPool)
+#     └── Health Checks          (LoadbalancerHealthCheck)
+#   Certificate
+#     └── Certificate            (CertificateCertificate)
+#
+# Mirrors the live CoreMenuItem entries on main as of 2026-11-21 (same
+# namespace/name keys, labels, icons and order weights), so loading this file
+# updates those items in place instead of adding a second copy. SNAT Pools is
+# new with LoadbalancerSnatPool.
+#
+# Register this file in .infrahub.yml (plural key!):
+#
+#   menus:
+#     - menus/menu-loadbalancer.yml
+#
+# Every kind referenced below carries include_in_menu: false in its schema
+# file, so the auto-menu adds no duplicate entries.
+---
+apiVersion: infrahub.app/v1
+kind: Menu
+spec:
+  data:
+    - namespace: Loadbalancer
+      name: Menu
+      label: "Load Balancer"
+      icon: "mdi:scale-balance"
+      order_weight: 2000
+      # No kind: group header
+      children:
+        data:
+          - namespace: Loadbalancer
+            name: Cluster
+            label: "Load Balancer Clusters"
+            kind: LoadbalancerCluster
+            icon: "clarity:cluster-line"
+            order_weight: 1000
+
+          - namespace: Loadbalancer
+            name: Device
+            label: "Load Balancers"
+            kind: DcimLoadBalancer
+            icon: "mdi:scale-balance"
+            order_weight: 1100
+
+          - namespace: Loadbalancer
+            name: VIP
+            label: "VIP Services"
+            kind: ServiceVIP
+            icon: "carbon:floating-ip"
+            order_weight: 1250
+
+          - namespace: Loadbalancer
+            name: Pool
+            label: "Pools"
+            kind: LoadbalancerPool
+            icon: "mdi:pool"
+            order_weight: 1300
+
+          - namespace: Loadbalancer
+            name: PoolMember
+            label: "Pool Members"
+            kind: LoadbalancerPoolMember
+            icon: "mdi:server"
+            order_weight: 1400
+
+          - namespace: Loadbalancer
+            name: SnatPool
+            label: "SNAT Pools"
+            kind: LoadbalancerSnatPool
+            icon: "mdi:ip-network-outline"
+            order_weight: 1450
+
+          - namespace: Loadbalancer
+            name: HealthCheck
+            label: "Health Checks"
+            kind: LoadbalancerHealthCheck
+            icon: "tabler:checkup-list"
+            order_weight: 1500
+
+    - namespace: Certificate
+      name: Menu
+      label: "Certificate"
+      icon: "mdi:file-certificate-outline"
+      order_weight: 2000
+      children:
+        data:
+          - namespace: Certificate
+            name: Device
+            label: "Certificate"
+            kind: CertificateCertificate
+            icon: "mdi:file-certificate-outline"
+            order_weight: 1000

@@ -1,0 +1,99 @@
+# F5 BIG-IP LTM configuration for one load balancer (transforms/f5_config.py).
+# Pools, VIPs and SNAT pools hang off the device's cluster: the cluster is the
+# only path from a DcimLoadBalancer to its LTM objects.
+query f5_config($device: String!) {
+  DcimLoadBalancer(name__value: $device) {
+    edges {
+      node {
+        name { value }
+        os_version { value }
+        platform { node { name { value } } }
+        primary_address { node { address { value } } }
+        cluster {
+          node {
+            name { value }
+            pools {
+              edges {
+                node {
+                  name { value }
+                  partition { value }
+                  description { value }
+                  load_balancing_method { value }
+                  slow_ramp_time { value }
+                  min_active_members { value }
+                  health_check {
+                    node {
+                      name { value }
+                      type_checks { value }
+                      interval { value }
+                      timeout { value }
+                      send_string { value }
+                      receive_string { value }
+                    }
+                  }
+                  members {
+                    edges {
+                      node {
+                        name { value }
+                        description { value }
+                        port { value }
+                        ratio { value }
+                        priority { value }
+                        connection_limit { value }
+                        admin_enabled { value }
+                        ip_address { node { address { value } } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            vips {
+              edges {
+                node {
+                  name { value }
+                  partition { value }
+                  description { value }
+                  port { value }
+                  protocol { value }
+                  route_domain { value }
+                  source_address_filter { value }
+                  admin_enabled { value }
+                  vip_ip { node { address { value } } }
+                  pool { node { name { value } partition { value } } }
+                  ... on ServiceVIP {
+                    virtual_server_type { value }
+                    attached_profiles { value }
+                    client_ssl_profile { value }
+                    server_ssl_profile { value }
+                    client_http_profile { value }
+                    server_http_profile { value }
+                    one_connect_profile { value }
+                    persistence_type { value }
+                    irules { value }
+                    vlans { value }
+                    vlans_enabled { value }
+                    translate_address { value }
+                    translate_port { value }
+                    snat_type { value }
+                    snat_pool { node { name { value } partition { value } } }
+                  }
+                }
+              }
+            }
+            snat_pools {
+              edges {
+                node {
+                  name { value }
+                  partition { value }
+                  description { value }
+                  addresses { edges { node { address { value } } } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

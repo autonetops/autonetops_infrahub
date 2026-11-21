@@ -17,12 +17,15 @@
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
 
 # SD-WAN disabled 2026-11-18 (schema removed from Infrahub to cut load); uncomment to re-enable.
-#schemas:
+schemas:
+  - schemas/loadbalancer.yml
+  - schemas/certificate.yml
 #  - schemas/dcim_bgp.yml
 #   - schemas/sdwan.yml
 
 menus:
   - menus/menu-intent.yml
+  - menus/menu-loadbalancer.yml
 #   - menus/sdwan.yml
 
 queries:
@@ -46,6 +49,8 @@ queries:
     file_path: "queries/edge_bgp_local_pref.gql"
   - name: signal_predicate
     file_path: "queries/signal_predicate.gql"
+  - name: f5_config
+    file_path: "queries/f5_config.gql"
 #   - name: get_sdwan_nac_data
 #     file_path: "queries/sdwan.gql"
 
@@ -97,6 +102,9 @@ python_transforms:
   - name: grafana_dashboard
     class_name: GrafanaDashboardTransform
     file_path: "transforms/grafana_dashboard.py"
+  - name: f5_config
+    class_name: F5ConfigTransform
+    file_path: "transforms/f5_config.py"
 #   - name: sdwan_nac_export
 #     class_name: SdwanNacExport
 #     file_path: "transforms/sdwan_transform.py"
@@ -152,6 +160,15 @@ artifact_definitions:
     transformation: grafana_dashboard
     parameters:
       tenant: name__value
+
+  # F5 LTM config (tmsh merge file) per load balancer; transforms/f5_config.py
+  - name: f5-ltm-configuration
+    artifact_name: f5-ltm-configuration
+    content_type: text/plain
+    targets: load_balancers
+    transformation: f5_config
+    parameters:
+      device: name__value
 
 #   - name: sdwan-nac
 #     artifact_name: sdwan-nac
