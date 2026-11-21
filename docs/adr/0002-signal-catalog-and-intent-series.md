@@ -58,9 +58,22 @@ processor. Two concrete failures followed:
   (two contracts on one PE, threshold breach, one unobserved session).
   Not yet verified against live gNMI tag names on cEOS.
 
+## Step 2 — typed predicates (2026-11-21)
+
+`IntentObservabilitySignal` gains `operator` (gt|ge|lt|le|eq|ne),
+`threshold` (literal) XOR `threshold_ref` (contract term, `max_prefixes`)
+and `for_seconds`; `condition` becomes an optional human note.
+`signal_catalog.resolve_predicate()` is the single interpreter: the rules
+compiler, the expectations compiler (`alerting[].predicate`) and the new
+`signal_predicate_check` merge gate all call it, so a predicate that merges
+is a predicate that compiles. Unmigrated signals still compile through the
+legacy text parser and are reported (log_info) by the check.
+`scripts/migrate_signal_predicates.py` backfills a branch; output was
+verified byte-identical to the legacy compilation apart from
+`source: typed`.
+
 ## Owed (next steps)
 
-- Typed predicates replacing `ObservabilitySignal.condition` text (step 2).
 - Gate validator reads `evidence.factsPath` instead of hard-coding sessions (step 3).
 - `policy_export_violation` is a count proxy; real leak evidence needs the
   advertised prefix set (BMP / adj-rib-out) diffed against `allowed_prefixes`.

@@ -87,7 +87,7 @@
   <text x="316" y="402" class="mono">ObservabilityContract</text>
   <rect x="326" y="410" width="168" height="36" class="new"/>
   <text x="334" y="426" class="mono">› Signals</text>
-  <text x="334" y="440" class="xs">signal id · condition · severity</text>
+  <text x="334" y="440" class="xs">signal · operator · bound · for · sev</text>
 
   <!-- invariants / policies / waivers -->
   <rect x="515" y="200" width="105" height="150" class="inv"/>

@@ -870,7 +870,45 @@ nodes:
           - name: outbound
       - name: condition
         kind: Text
+        optional: true
         order_weight: 1300
+        description: "Human note only; compilers read operator/threshold/threshold_ref/for_seconds (text parsed only if operator unset)"
+      - name: operator
+        kind: Dropdown
+        optional: true
+        order_weight: 1310
+        description: "Alert when <metric> <operator> <bound>. Metric comes from the signal catalog."
+        choices:
+          - name: gt
+            label: "> greater than"
+          - name: ge
+            label: ">= at least"
+          - name: lt
+            label: "< less than"
+          - name: le
+            label: "<= at most"
+          - name: eq
+            label: "== equals"
+          - name: ne
+            label: "!= differs from"
+      - name: threshold
+        kind: Number
+        optional: true
+        order_weight: 1320
+        description: "Literal bound. Exactly one of threshold / threshold_ref."
+      - name: threshold_ref
+        kind: Dropdown
+        optional: true
+        order_weight: 1330
+        description: "Bound taken from the watched contract via intent_threshold; contract changes never touch rules"
+        choices:
+          - name: max_prefixes
+            label: "Contract max_prefixes"
+      - name: for_seconds
+        kind: Number
+        optional: true
+        order_weight: 1340
+        description: "How long the predicate must hold before alerting (Prometheus 'for'). 0 = immediately."
       - name: frequency_seconds
         kind: Number
         optional: true

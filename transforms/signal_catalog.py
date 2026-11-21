@@ -156,3 +156,85 @@ def selector(labels):
     """PromQL label matcher from a dict, stable order."""
     inner = ",".join(f'{k}="{v}"' for k, v in labels.items() if v is not None)
     return "{" + inner + "}"
+
+
+# --------------------------------------------------------------- predicates
+# An ObservabilitySignal's alert condition is a typed predicate:
+#   <catalog metric> <operator> <threshold | contract term>  for <for_seconds>
+# The legacy free-text ``condition`` is parsed only when ``operator`` is unset,
+# so unmigrated data keeps compiling; new data never needs the parser.
+
+PROMQL_OPS = {"gt": ">", "ge": ">=", "lt": "<", "le": "<=", "eq": "==", "ne": "!="}
+
+# contract terms a predicate may reference -> intent_threshold{term=...}
+THRESHOLD_TERMS = {"max_prefixes"}
+
+
+@dataclass(frozen=True)
+class Predicate:
+    operator: str
+    threshold: float | None
+    threshold_ref: str | None
+    for_seconds: int
+    source: str  # typed | legacy
+
+    @property
+    def promql_op(self):
+        return PROMQL_OPS[self.operator]
+
+    def as_dict(self):
+        return {
+            "operator": self.operator,
+            "threshold": self.threshold,
+            "thresholdRef": self.threshold_ref,
+            "forSeconds": self.for_seconds,
+            "source": self.source,
+        }
+
+
+def _num(x):
+    return int(x) if float(x).is_integer() else float(x)
+
+
+def resolve_predicate(signal_id, *, operator=None, threshold=None,
+                      threshold_ref=None, for_seconds=None, condition=None,
+                      frequency_seconds=30, name=None):
+    """Typed fields -> Predicate; raises ValueError on anything ambiguous.
+    The same rules back the merge check (checks/signal_predicate.py), so a
+    predicate that merges is a predicate that compiles."""
+    sig = spec(signal_id)
+    label = name or signal_id
+    if operator:
+        if operator not in PROMQL_OPS:
+            raise ValueError(f"signal '{label}': unknown operator '{operator}'")
+        if (threshold is None) == (threshold_ref is None):
+            raise ValueError(
+                f"signal '{label}': set exactly one of threshold / threshold_ref")
+        if threshold_ref is not None:
+            if threshold_ref not in THRESHOLD_TERMS:
+                raise ValueError(
+                    f"signal '{label}': unknown threshold_ref '{threshold_ref}'")
+            if not sig.threshold:
+                raise ValueError(
+                    f"signal '{label}': {signal_id} has no contract-bounded "
+                    f"metric; use a literal threshold")
+        return Predicate(operator, None if threshold is None else _num(threshold),
+                         threshold_ref, int(for_seconds or 0), "typed")
+    return _legacy_predicate(sig, condition, frequency_seconds, label)
+
+
+def _legacy_predicate(sig, condition, frequency_seconds, label):
+    import re
+
+    text = condition or ""
+    if m := re.search(r"down_for\s*>\s*(\d+)s", text):
+        return Predicate("eq", 0, None, int(m.group(1)), "legacy")
+    if "max_prefixes" in text and sig.threshold:
+        return Predicate("gt", None, "max_prefixes", 0, "legacy")
+    if m := re.search(r"count\s*>\s*(\d+)", text):
+        return Predicate("gt", int(m.group(1)), None, 0, "legacy")
+    if m := re.search(r"loss\s*>\s*(\d+)\s*%", text):
+        return Predicate("gt", int(m.group(1)), None, 2 * frequency_seconds, "legacy")
+    raise ValueError(
+        f"signal '{label}': no typed predicate (operator unset) and legacy "
+        f"condition '{condition}' is not recognized")

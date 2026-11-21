@@ -1,0 +1,44 @@
+query signal_predicate {
+  IntentObservabilitySignal {
+    edges {
+      node {
+        name {
+          value
+        }
+        signal {
+          value
+        }
+        condition {
+          value
+        }
+        operator {
+          value
+        }
+        threshold {
+          value
+        }
+        threshold_ref {
+          value
+        }
+        for_seconds {
+          value
+        }
+        frequency_seconds {
+          value
+        }
+        watches {
+          node {
+            name {
+              value
+            }
+            ... on IntentRoutingContract {
+              max_prefixes_ipv4 {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

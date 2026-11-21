@@ -44,10 +44,15 @@ queries:
     file_path: "queries/grafana_dashboard.gql"
   - name: edge_bgp_local_pref
     file_path: "queries/edge_bgp_local_pref.gql"
+  - name: signal_predicate
+    file_path: "queries/signal_predicate.gql"
 #   - name: get_sdwan_nac_data
 #     file_path: "queries/sdwan.gql"
 
 check_definitions:
+  - name: signal_predicate_check
+    class_name: SignalPredicateCheck
+    file_path: "checks/signal_predicate.py"
   - name: observability_capability_check
     class_name: ObservabilityCapabilityCheck
     file_path: "checks/observability_capability.py"

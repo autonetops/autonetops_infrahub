@@ -40,6 +40,18 @@ query prometheus_rules($contract: String!) {
               condition {
                 value
               }
+              operator {
+                value
+              }
+              threshold {
+                value
+              }
+              threshold_ref {
+                value
+              }
+              for_seconds {
+                value
+              }
               watches {
                 node {
                   name {

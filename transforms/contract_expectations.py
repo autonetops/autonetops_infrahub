@@ -181,10 +181,23 @@ def build_expectations(data):
                 ),
             },
         })
+        pred = signal_catalog.resolve_predicate(
+            sig.id,
+            operator=_v(signal.get("operator")),
+            threshold=_v(signal.get("threshold")),
+            threshold_ref=_v(signal.get("threshold_ref")),
+            for_seconds=_v(signal.get("for_seconds")),
+            condition=_v(signal.get("condition")),
+            frequency_seconds=freq,
+            name=_v(signal["name"]),
+        )
         alerting.append({
-            "signal": _v(signal["signal"]),
+            "signal": sig.id,
             "severity": _v(signal["severity"]),
-            "condition": _v(signal["condition"]),
+            # typed predicate - what the rules compiler and the gate
+            # validator both evaluate; condition kept as the human note
+            "predicate": pred.as_dict(),
+            "condition": _v(signal.get("condition")),
         })
 
     expectations = {
