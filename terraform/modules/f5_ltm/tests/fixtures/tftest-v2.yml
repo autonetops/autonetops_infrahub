@@ -1,0 +1,66 @@
+# Live-test fixture, day 2: tftest-v1.yml after an Infrahub edit. Every
+# value that can drop to zero/empty/null does (the bigip provider skips
+# zero values unless the module works around it), plus a member, a
+# virtual and a pool are deleted.
+format_version: 1
+device:
+  name: TFTEST
+  cluster: TFTEST
+  management_address: null
+  os_version: null
+monitors:
+  /Common/tftest-hc-http:
+    parent: /Common/http
+    interval: 5
+    timeout: 16
+    send: 'GET /health HTTP/1.1\r\nHost: tftest\r\nConnection: close\r\n\r\n'
+    receive: 200 OK
+nodes:
+  /Common/198.18.0.10:
+    address: 198.18.0.10
+    monitor: default
+pools:
+  /Common/tftest-web:
+    description: null
+    load_balancing_mode: round-robin
+    minimum_active_members: 0
+    slow_ramp_time: 0
+    service_down_action: none
+    reselect_tries: 0
+    allow_snat: 'yes'
+    allow_nat: 'yes'
+    monitors: []
+    members:
+      /Common/198.18.0.10:80:
+        ratio: 5
+        priority_group: 0
+        connection_limit: 0
+        state: enabled
+snatpools:
+  /Common/tftest-snat:
+    members:
+    - /Common/198.18.1.8
+virtual_servers:
+  /Common/tftest-vs-https:
+    description: null
+    destination: 198.18.2.80
+    port: 443
+    mask: 255.255.255.255
+    ip_protocol: tcp
+    source: 0.0.0.0/0
+    pool: /Common/tftest-web
+    profiles:
+    - /Common/tcp
+    client_profiles: []
+    server_profiles: []
+    persistence_profiles: []
+    irules: []
+    source_address_translation: automap
+    snatpool: null
+    translate_address: enabled
+    translate_port: enabled
+    vlans: []
+    vlans_enabled: false
+    connection_limit: 0
+    source_port: preserve
+    state: disabled

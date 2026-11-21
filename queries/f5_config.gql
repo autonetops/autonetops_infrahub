@@ -1,4 +1,5 @@
-# F5 BIG-IP LTM configuration for one load balancer (transforms/f5_config.py).
+# F5 BIG-IP LTM desired state (YAML for terraform/f5_ltm) for one load balancer
+# (transforms/f5_config.py).
 # Pools, VIPs and SNAT pools hang off the device's cluster: the cluster is the
 # only path from a DcimLoadBalancer to its LTM objects.
 query f5_config($device: String!) {
@@ -21,6 +22,12 @@ query f5_config($device: String!) {
                   load_balancing_method { value }
                   slow_ramp_time { value }
                   min_active_members { value }
+                  ... on LoadbalancerPool {
+                    service_down_action { value }
+                    reselect_tries { value }
+                    allow_snat { value }
+                    allow_nat { value }
+                  }
                   health_check {
                     node {
                       name { value }
@@ -75,6 +82,8 @@ query f5_config($device: String!) {
                     vlans_enabled { value }
                     translate_address { value }
                     translate_port { value }
+                    connection_limit { value }
+                    source_port { value }
                     snat_type { value }
                     snat_pool { node { name { value } partition { value } } }
                   }

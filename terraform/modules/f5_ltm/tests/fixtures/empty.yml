@@ -1,0 +1,8 @@
+# Nothing managed: used by live_test.sh to check that destroy removed everything.
+format_version: 1
+device: {name: TFTEST, cluster: TFTEST, management_address: null, os_version: null}
+monitors: {}
+nodes: {}
+pools: {}
+snatpools: {}
+virtual_servers: {}

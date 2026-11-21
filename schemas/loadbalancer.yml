@@ -33,6 +33,9 @@
 #   - New kind LoadbalancerSnatPool (ltm snatpool): cluster, addresses.
 #   - DcimLoadBalancer inherits CoreArtifactTarget (as DcimDevice does), so the
 #     f5-ltm-configuration artifact can attach to it.
+#   - v3 (Terraform delivery): pools gain service_down_action, reselect_tries,
+#     allow_snat, allow_nat; ServiceVIP gains connection_limit, source_port.
+#     Defaults equal the F5 defaults, so existing objects need no data change.
 # Sidebar entries: menus/menu-loadbalancer.yml.
 #
 # Requires these kinds from schema files not in this repo yet:
@@ -917,6 +920,41 @@ nodes:
           kind: TransformPython
           transform: PoolRouteDomains
         order_weight: 1250
+      - name: service_down_action
+        kind: Dropdown
+        label: Service Down Action
+        description: What happens to connections when every member is down (F5 service-down-action)
+        optional: true
+        default_value: none
+        choices:
+          - name: none
+            label: None
+          - name: reset
+            label: Reset
+          - name: drop
+            label: Drop
+          - name: reselect
+            label: Reselect
+        order_weight: 1300
+      - name: reselect_tries
+        kind: Number
+        label: Reselect Tries
+        description: Times the LB tries another member after a failed connection (F5 reselect-tries)
+        optional: true
+        default_value: 0
+        order_weight: 1310
+      - name: allow_snat
+        kind: Boolean
+        label: Allow SNAT
+        optional: true
+        default_value: true
+        order_weight: 1320
+      - name: allow_nat
+        kind: Boolean
+        label: Allow NAT
+        optional: true
+        default_value: true
+        order_weight: 1330
   - name: PoolMember
     namespace: Loadbalancer
     label: Pool Member
@@ -1187,6 +1225,27 @@ nodes:
         default_value: true
         order_weight: 2150
         description: Translate the destination port to the pool member port (F5 translate-port)
+      - name: connection_limit
+        kind: Number
+        label: Connection Limit
+        description: Max concurrent connections to the virtual; 0 = unlimited
+        optional: true
+        default_value: 0
+        order_weight: 2160
+      - name: source_port
+        kind: Dropdown
+        label: Source Port
+        description: Client source-port handling on the server side (F5 source-port)
+        optional: true
+        default_value: preserve
+        choices:
+          - name: preserve
+            label: Preserve
+          - name: preserve-strict
+            label: Preserve Strict
+          - name: change
+            label: Change
+        order_weight: 2170
     relationships:
       - name: snat_pool
         peer: LoadbalancerSnatPool

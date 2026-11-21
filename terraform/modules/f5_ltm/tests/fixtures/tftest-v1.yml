@@ -1,0 +1,120 @@
+# Live-test fixture: every object is named tftest-* or sits on 198.18.0.0/15
+# (RFC 2544 benchmarking space) and every virtual is disabled, so it can share
+# a production box. Same shape as transforms/f5_config.py output
+# (tests/test_f5_config.py checks the keys match).
+format_version: 1
+device:
+  name: TFTEST
+  cluster: TFTEST
+  management_address: null
+  os_version: null
+monitors:
+  /Common/tftest-hc-http:
+    parent: /Common/http
+    interval: 5
+    timeout: 16
+    send: 'GET /health HTTP/1.1\r\nHost: tftest\r\nConnection: close\r\n\r\n'
+    receive: 200 OK
+nodes:
+  /Common/198.18.0.10:
+    address: 198.18.0.10
+    monitor: default
+  /Common/198.18.0.11:
+    address: 198.18.0.11
+    monitor: default
+pools:
+  /Common/tftest-web:
+    description: terraform f5_ltm live test
+    load_balancing_mode: least-connections-member
+    minimum_active_members: 1
+    slow_ramp_time: 30
+    service_down_action: reset
+    reselect_tries: 2
+    allow_snat: 'yes'
+    allow_nat: 'no'
+    monitors:
+    - /Common/tftest-hc-http
+    members:
+      /Common/198.18.0.10:80:
+        ratio: 1
+        priority_group: 2
+        connection_limit: 50
+        state: enabled
+      /Common/198.18.0.11:80:
+        ratio: 3
+        priority_group: 5
+        connection_limit: 100
+        state: disabled
+  /Common/tftest-l4:
+    description: null
+    load_balancing_mode: round-robin
+    minimum_active_members: 0
+    slow_ramp_time: 10
+    service_down_action: none
+    reselect_tries: 0
+    allow_snat: 'yes'
+    allow_nat: 'yes'
+    monitors: []
+    members:
+      /Common/198.18.0.10:0:
+        ratio: 1
+        priority_group: 0
+        connection_limit: 0
+        state: enabled
+snatpools:
+  /Common/tftest-snat:
+    members:
+    - /Common/198.18.1.8
+    - /Common/198.18.1.9
+virtual_servers:
+  /Common/tftest-vs-https:
+    description: terraform f5_ltm live test
+    destination: 198.18.2.80
+    port: 443
+    mask: 255.255.255.255
+    ip_protocol: tcp
+    source: 0.0.0.0/0
+    pool: /Common/tftest-web
+    profiles:
+    - /Common/http
+    - /Common/tcp
+    client_profiles:
+    - /Common/clientssl
+    server_profiles: []
+    persistence_profiles:
+    - /Common/cookie
+    irules:
+    - /Common/_sys_https_redirect
+    source_address_translation: automap
+    snatpool: null
+    translate_address: enabled
+    translate_port: enabled
+    vlans:
+    - /Common/lb-in-grp1-197
+    vlans_enabled: true
+    connection_limit: 500
+    source_port: preserve
+    state: disabled
+  /Common/tftest-vs-l4:
+    description: null
+    destination: 198.18.2.81
+    port: 0
+    mask: 255.255.255.255
+    ip_protocol: any
+    source: 0.0.0.0/0
+    pool: /Common/tftest-l4
+    profiles:
+    - /Common/fastL4
+    client_profiles: []
+    server_profiles: []
+    persistence_profiles: []
+    irules: []
+    source_address_translation: snat
+    snatpool: /Common/tftest-snat
+    translate_address: enabled
+    translate_port: disabled
+    vlans: []
+    vlans_enabled: false
+    connection_limit: 0
+    source_port: change
+    state: disabled

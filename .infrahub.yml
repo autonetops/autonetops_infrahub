@@ -161,10 +161,11 @@ artifact_definitions:
     parameters:
       tenant: name__value
 
-  # F5 LTM config (tmsh merge file) per load balancer; transforms/f5_config.py
+  # F5 LTM desired state (YAML) per load balancer; transforms/f5_config.py.
+  # Pushed to the box by the Terraform module in terraform/f5_ltm.
   - name: f5-ltm-configuration
     artifact_name: f5-ltm-configuration
-    content_type: text/plain
+    content_type: application/yaml
     targets: load_balancers
     transformation: f5_config
     parameters:

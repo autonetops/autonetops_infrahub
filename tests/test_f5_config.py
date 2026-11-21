@@ -1,9 +1,10 @@
 """Offline tests for transforms/f5_config.py (no Infrahub needed).
 
-LB-DC2 exercises only part of the renderer (fastL4 port-0 virtuals, SNAT
-pools). These fixtures cover the rest: monitors, persistence, SSL/HTTP
-profiles, IPv6 and route-domain destinations, disabled objects and the
-failure modes that must fail the artifact instead of rendering nonsense.
+The transform renders the YAML that terraform/f5_ltm reads. LB-DC2 exercises
+only part of it (fastL4 port-0 virtuals, SNAT pools). These fixtures cover the
+rest: monitors, persistence, SSL/HTTP profiles, IPv6 and route-domain
+destinations, disabled objects and the failure modes that must fail the
+artifact instead of rendering nonsense.
 """
 
 import asyncio
@@ -12,10 +13,11 @@ import pathlib
 import sys
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from transforms.f5_config import F5ConfigTransform, build_view  # noqa: E402
+from transforms.f5_config import FORMAT_VERSION, F5ConfigTransform, build_view  # noqa: E402
 
 
 def v(value):
@@ -69,6 +71,8 @@ def vip(name, address, port, **kw):
         "translate_address": v(kw.get("translate_address")),
         "translate_port": v(kw.get("translate_port")),
         "snat_type": v(kw.get("snat_type", "automap")),
+        "connection_limit": v(kw.get("connection_limit")),
+        "source_port": v(kw.get("source_port")),
         "snat_pool": rel(kw.get("snat_pool")),
     }
 
@@ -85,6 +89,10 @@ def data(vips, pools=None, snat_pools=(), cluster=True):
                 "load_balancing_method": v("least-connections-member"),
                 "slow_ramp_time": v(None),
                 "min_active_members": v(None),
+                "service_down_action": v("reset"),
+                "reselect_tries": v(None),
+                "allow_snat": v(True),
+                "allow_nat": v(False),
                 "health_check": rel(
                     {
                         "name": v("hc_http"),
@@ -92,9 +100,9 @@ def data(vips, pools=None, snat_pools=(), cluster=True):
                         "interval": v(5),
                         "timeout": v(16),
                         "send_string": v(
-                            '"GET /health HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n"'
+                            "GET /health HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n"
                         ),
-                        "receive_string": v('"200 OK"'),
+                        "receive_string": v("200 OK"),
                     }
                 ),
                 "members": edges(
@@ -130,8 +138,32 @@ def render(d):
     return asyncio.run(F5ConfigTransform.transform(None, d))
 
 
+def virtuals(d):
+    return build_view(d)["virtual_servers"]
+
+
+def test_output_is_yaml_terraform_can_read():
+    doc = yaml.safe_load(render(data([vip("vs", "10.20.0.80/32", 80)])))
+    assert doc["format_version"] == FORMAT_VERSION
+    assert doc["device"] == {
+        "name": "LB-TEST",
+        "cluster": "LB-TEST",
+        "management_address": "192.0.2.1",
+        "os_version": "17.5.0",
+    }
+    assert list(doc) == [
+        "format_version",
+        "device",
+        "monitors",
+        "nodes",
+        "pools",
+        "snatpools",
+        "virtual_servers",
+    ]
+
+
 def test_https_vip_profiles_persistence_monitor():
-    out = render(
+    view = build_view(
         data(
             [
                 vip(
@@ -144,44 +176,69 @@ def test_https_vip_profiles_persistence_monitor():
                     persistence_type="cookie",
                     irules=["redirect"],
                     vlans=["/Common/ext"],
+                    connection_limit=500,
                 )
             ]
         )
     )
-    assert (
-        "ltm monitor http /Common/hc_http {\n    defaults-from /Common/http\n    interval 5\n"
-        in out
+    assert view["monitors"] == {
+        "/Common/hc_http": {
+            "parent": "/Common/http",
+            "interval": 5,
+            "timeout": 16,
+            "send": "GET /health HTTP/1.1\\r\\nHost: x\\r\\n\\r\\n",
+            "receive": "200 OK",
+        }
+    }
+    pool = view["pools"]["/Common/web"]
+    assert pool["monitors"] == ["/Common/hc_http"]
+    assert pool["load_balancing_mode"] == "least-connections-member"
+    assert pool["service_down_action"] == "reset"
+    assert (pool["allow_snat"], pool["allow_nat"]) == ("yes", "no")
+    vs = view["virtual_servers"]["/Common/vs_https"]
+    assert vs["client_profiles"] == ["/Common/clientssl"]
+    assert vs["profiles"] == [
+        "/Common/http"
+    ]  # explicit profiles replace the type default
+    assert vs["server_profiles"] == []
+    assert vs["persistence_profiles"] == ["/Common/cookie"]
+    assert vs["irules"] == ["/Common/redirect"]
+    assert vs["ip_protocol"] == "tcp"
+    assert (vs["source_address_translation"], vs["snatpool"]) == ("automap", None)
+    assert (vs["translate_address"], vs["translate_port"]) == ("enabled", "enabled")
+    assert (vs["vlans"], vs["vlans_enabled"]) == (["/Common/ext"], True)
+    assert (vs["connection_limit"], vs["source_port"]) == (500, "preserve")
+    assert (vs["destination"], vs["port"], vs["mask"]) == (
+        "10.20.0.80",
+        443,
+        "255.255.255.255",
     )
-    assert "    monitor /Common/hc_http\n" in out
-    assert "    load-balancing-mode least-connections-member\n" in out
-    assert (
-        "        /Common/clientssl {\n            context clientside\n        }\n"
-        in out
-    )
-    assert "        /Common/http {\n        }\n" in out
-    assert "/Common/tcp" not in out  # explicit profiles replace the type default
-    assert "    persist {\n        /Common/cookie {\n            default yes\n" in out
-    assert "    rules {\n        /Common/redirect\n    }\n" in out
-    assert "    ip-protocol tcp\n" in out
-    assert "        type automap\n" in out
-    assert "    translate-address enabled\n    translate-port enabled\n" in out
-    assert "    vlans {\n        /Common/ext\n    }\n    vlans-enabled\n" in out
 
 
 def test_member_settings_and_nodes():
-    out = render(data([vip("vs", "10.20.0.80/32", 80)]))
-    assert out.count("ltm node ") == 2
-    assert (
-        "        /Common/10.1.1.11:80 {\n            address 10.1.1.11\n            ratio 3\n            session user-disabled\n"
-        in out
-    )
-    assert (
-        "/Common/10.1.1.10:80 {\n            address 10.1.1.10\n        }\n" in out
-    )  # defaults omitted
+    view = build_view(data([vip("vs", "10.20.0.80/32", 80)]))
+    assert view["nodes"] == {
+        "/Common/10.1.1.10": {"address": "10.1.1.10", "monitor": "default"},
+        "/Common/10.1.1.11": {"address": "10.1.1.11", "monitor": "default"},
+    }
+    assert view["pools"]["/Common/web"]["members"] == {
+        "/Common/10.1.1.10:80": {
+            "ratio": 1,
+            "priority_group": 0,
+            "connection_limit": 0,
+            "state": "enabled",
+        },
+        "/Common/10.1.1.11:80": {
+            "ratio": 3,
+            "priority_group": 0,
+            "connection_limit": 0,
+            "state": "disabled",
+        },
+    }
 
 
 def test_default_profiles_by_type_and_protocol():
-    view = build_view(
+    vs = virtuals(
         data(
             [
                 vip(
@@ -196,37 +253,54 @@ def test_default_profiles_by_type_and_protocol():
             ]
         )
     )
-    profiles = {x["path"]: [p for p, _ in x["profiles"]] for x in view["virtuals"]}
-    assert profiles == {
+    assert {k: x["profiles"] for k, x in vs.items()} == {
+        "/Common/http": ["/Common/http", "/Common/tcp"],
         "/Common/l4": ["/Common/fastL4"],
         "/Common/udp": ["/Common/udp"],
-        "/Common/http": ["/Common/http", "/Common/tcp"],
     }
+    assert vs["/Common/l4"]["ip_protocol"] == "any"
 
 
 def test_ipv6_route_domain_and_disabled():
-    view = build_view(
-        data(
-            [
-                vip("v6", "2001:db8::80/128", 443, partition="Tenant1"),
-                vip(
-                    "rd",
-                    "10.20.0.5/32",
-                    80,
-                    route_domain=2,
-                    admin_enabled=False,
-                    vlans=["int"],
-                    vlans_enabled=False,
-                ),
-            ]
-        )
+    pools = data([])["DcimLoadBalancer"]["edges"][0]["node"]["cluster"]["node"][
+        "pools"
+    ]["edges"]
+    pools[0]["node"]["partition"] = v("Tenant1")  # pool referenced from /Tenant1 below
+    d = data(
+        [
+            vip("v6", "2001:db8::80/128", 443, partition="Tenant1"),
+            vip(
+                "rd",
+                "10.20.0.5/32",
+                80,
+                route_domain=2,
+                admin_enabled=False,
+                vlans=["int"],
+                vlans_enabled=False,
+            ),
+        ],
+        pools=[p["node"] for p in pools]
+        + [
+            data([])["DcimLoadBalancer"]["edges"][0]["node"]["cluster"]["node"][
+                "pools"
+            ]["edges"][0]["node"]
+        ],
     )
-    by = {x["path"]: x for x in view["virtuals"]}
-    assert by["/Tenant1/v6"]["destination"] == "/Tenant1/2001:db8::80.443"
-    assert by["/Tenant1/v6"]["mask"] == "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
-    assert by["/Common/rd"]["destination"] == "/Common/10.20.0.5%2:80"
-    assert by["/Common/rd"]["disabled"] is True
-    assert by["/Common/rd"]["vlans_mode"] == "vlans-disabled"
+    for x in d["DcimLoadBalancer"]["edges"][0]["node"]["cluster"]["node"]["vips"][
+        "edges"
+    ]:
+        if x["node"]["name"]["value"] == "v6":
+            x["node"]["pool"] = rel({"name": v("web"), "partition": v("Tenant1")})
+    vs = virtuals(d)
+    assert vs["/Tenant1/v6"]["destination"] == "2001:db8::80"
+    assert vs["/Tenant1/v6"]["mask"] == "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+    assert vs["/Tenant1/v6"]["pool"] == "/Tenant1/web"
+    assert vs["/Common/rd"]["destination"] == "10.20.0.5%2"
+    assert vs["/Common/rd"]["state"] == "disabled"
+    assert (vs["/Common/rd"]["vlans"], vs["/Common/rd"]["vlans_enabled"]) == (
+        ["/Common/int"],
+        False,
+    )
 
 
 def test_snat_pool_reference():
@@ -238,7 +312,7 @@ def test_snat_pool_reference():
             {"address": v("198.51.100.9/32")}, {"address": v("198.51.100.8/32")}
         ),
     }
-    out = render(
+    view = build_view(
         data(
             [
                 vip(
@@ -252,11 +326,16 @@ def test_snat_pool_reference():
             snat_pools=[sp],
         )
     )
-    assert (
-        "ltm snatpool /Common/snat_out {\n    members {\n        /Common/198.51.100.8\n        /Common/198.51.100.9\n"
-        in out
+    assert view["snatpools"] == {
+        "/Common/snat_out": {
+            "members": ["/Common/198.51.100.8", "/Common/198.51.100.9"]
+        }
+    }
+    vs = view["virtual_servers"]["/Common/vs"]
+    assert (vs["source_address_translation"], vs["snatpool"]) == (
+        "snat",
+        "/Common/snat_out",
     )
-    assert "        pool /Common/snat_out\n        type snat\n" in out
 
 
 def test_output_is_deterministic():
@@ -266,9 +345,7 @@ def test_output_is_deterministic():
         "edges"
     ].reverse()
     assert render(d) == render(shuffled)
-    assert render(d).index("ltm virtual /Common/a") < render(d).index(
-        "ltm virtual /Common/b"
-    )
+    assert list(virtuals(d)) == ["/Common/a", "/Common/b"]
 
 
 @pytest.mark.parametrize(
@@ -276,6 +353,7 @@ def test_output_is_deterministic():
     [
         ("no_cluster", "has no cluster"),
         ("snat_without_pool", "snat_type is snat_pool but no snat_pool"),
+        ("snat_pool_elsewhere", "is not on this cluster"),
         ("vip_without_ip", "has no vip_ip"),
         ("unknown", "load balancer not found"),
     ],
@@ -285,6 +363,18 @@ def test_failures_fail_the_artifact(case, message):
         d = data([], cluster=False)
     elif case == "snat_without_pool":
         d = data([vip("vs", "10.20.0.80/32", 80, snat_type="snat_pool")])
+    elif case == "snat_pool_elsewhere":
+        d = data(
+            [
+                vip(
+                    "vs",
+                    "10.20.0.80/32",
+                    80,
+                    snat_type="snat_pool",
+                    snat_pool={"name": v("other"), "partition": v("Common")},
+                )
+            ]
+        )
     elif case == "vip_without_ip":
         bad = vip("vs", "10.20.0.80/32", 80)
         bad["vip_ip"] = rel(None)
@@ -293,3 +383,30 @@ def test_failures_fail_the_artifact(case, message):
         d = {"DcimLoadBalancer": {"edges": []}}
     with pytest.raises(ValueError, match=message):
         build_view(d)
+
+
+FIXTURES = (
+    pathlib.Path(__file__).resolve().parent.parent
+    / "terraform/modules/f5_ltm/tests/fixtures"
+)
+
+
+@pytest.mark.parametrize("fixture", ["tftest-v1.yml", "tftest-v2.yml"])
+def test_terraform_fixtures_match_the_renderer_contract(fixture):
+    """The Terraform module's test fixtures must have the shape this transform renders."""
+    rendered = yaml.safe_load(render(data([vip("vs", "10.20.0.80/32", 80)])))
+    fx = yaml.safe_load((FIXTURES / fixture).read_text())
+
+    def fields(doc, kind):
+        return {k for obj in doc[kind].values() for k in obj}
+
+    assert fx["format_version"] == rendered["format_version"]
+    assert list(fx) == list(rendered)
+    for kind in ("nodes", "pools", "virtual_servers"):
+        assert fields(fx, kind) == fields(rendered, kind), kind
+    member_fields = {
+        k for p in fx["pools"].values() for m in p["members"].values() for k in m
+    }
+    assert member_fields == set(
+        next(iter(rendered["pools"]["/Common/web"]["members"].values()))
+    )
