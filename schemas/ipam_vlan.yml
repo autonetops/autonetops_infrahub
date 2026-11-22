@@ -1,0 +1,220 @@
+# ---------------------------------------------------------------------------
+# VLAN model.
+#
+#   IpamGenericVLAN    -> IpamVLAN: an 802.1Q VLAN, member of one VLAN group
+#                         and homed at one LocationSite (`site`, required:
+#                         the scope of VLAN-ID number pools)
+#   IpamVLANGroup      -> a named set of VLANs (vlan_id unique per group),
+#                         optionally scoped by an IpamVLANGroupScope
+#   IpamVLANGroupScope -> anything a VLAN group can be scoped to
+#
+# DERIVED from the live Infrahub schema (main) on 2026-11-21: this model had
+# no source file on disk. Server-side defaults, inherited fields and the
+# auto-generated group/profile/template relationships are omitted.
+#
+# Requires these kinds from schema files not in this repo yet:
+#   IpamPrefix
+# ---------------------------------------------------------------------------
+version: '1.0'
+generics:
+  - name: GenericVLAN
+    namespace: Ipam
+    label: VLAN
+    description: A VLAN is an isolated layer two domain.
+    icon: mdi:lan-pending
+    include_in_menu: true
+    display_label: name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    order_by:
+      - name__value
+    attributes:
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+      - name: status
+        kind: Dropdown
+        optional: true
+        default_value: active
+        choices:
+          - name: reserved
+            description: Reserved for future use, not yet active.
+            color: '#4d90fe'
+            label: Reserved
+          - name: provisioning
+            description: In the process of being set up and configured.
+            color: '#f0ad4e'
+            label: Provisioning
+          - name: maintenance
+            description: Undergoing routine maintenance or repairs.
+            color: '#ff9800'
+            label: Maintenance
+          - name: deprecated
+            description: No longer in use and scheduled for removal.
+            color: '#e04040'
+            label: Deprecated
+          - name: active
+            description: Fully operational and currently in service.
+            color: '#00d25b'
+            label: Active
+        order_weight: 1200
+      - name: role
+        kind: Dropdown
+        optional: true
+        choices:
+          - name: user
+            description: Segments designed for end-user access and activities.
+            color: '#a0b78d'
+            label: User
+          - name: server
+            description: Dedicated systems for managing networked resources.
+            color: '#c4bed7'
+            label: Server
+          - name: management
+            description: Network segments for administrative and control tasks.
+            color: '#9af1e1'
+            label: Management
+        order_weight: 1300
+      - name: vlan_id
+        kind: Number
+        parameters:
+          min_value: null
+          max_value: null
+          excluded_values: null
+        order_weight: 1050
+    relationships:
+      - name: vlan_group
+        peer: IpamVLANGroup
+        kind: Attribute
+        label: VLAN Group
+        identifier: vlan_group__vlan
+        cardinality: one
+        optional: false
+        min_count: 1
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1400
+      # The site the VLAN belongs to. Required, so a CoreNumberPool on
+      # IpamVLAN.vlan_id can use it as allocation_scope [site].
+      - name: site
+        peer: LocationSite
+        kind: Attribute
+        label: Site
+        description: Site the VLAN belongs to; divides VLAN-ID pools scoped by site.
+        identifier: site__vlan
+        cardinality: one
+        optional: false
+        min_count: 1
+        max_count: 1
+        on_delete: no-action
+        order_weight: 1450
+      - name: prefixes
+        peer: IpamPrefix
+        kind: Attribute
+        identifier: vlan__prefix
+        on_delete: no-action
+        order_weight: 1500
+  - name: VLANGroupScope
+    namespace: Ipam
+    label: VLAN Group Scope
+    description: Mixin for objects that can scope a VLAN group (e.g. Region, Site). The reverse relationship
+      is added by extensions/vlan.
+    include_in_menu: false
+    relationships:
+      - name: vlan_groups
+        peer: IpamVLANGroup
+        kind: Attribute
+        label: VLAN Groups
+        identifier: vlan_group__scope
+        on_delete: no-action
+        order_weight: 1600
+nodes:
+  - name: VLAN
+    namespace: Ipam
+    label: VLAN
+    description: A plain VLAN, with no QinQ role of its own.
+    icon: mdi:lan-pending
+    include_in_menu: false
+    inherit_from:
+      - IpamGenericVLAN
+    display_label: name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - vlan_id__value
+        - vlan_group
+      - - name__value
+    order_by:
+      - name__value
+  - name: VLANGroup
+    namespace: Ipam
+    label: VLAN Group
+    description: A VLAN group scopes VLANs to a domain (site, rack, etc.).
+    icon: mdi:domain-switch
+    include_in_menu: true
+    menu_placement: IpamGenericVLAN
+    inherit_from: []
+    display_label: name__value
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+    attributes:
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: name
+        kind: Text
+        unique: true
+        order_weight: 1000
+    relationships:
+      - name: scope
+        peer: IpamVLANGroupScope
+        kind: Attribute
+        identifier: vlan_group__scope
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 900
+      - name: vlans
+        peer: IpamGenericVLAN
+        kind: Component
+        identifier: vlan_group__vlan
+        on_delete: cascade
+        order_weight: 1500
+extensions:
+  nodes:
+    - kind: InterfaceLayer2
+      relationships:
+        - name: tagged_vlan
+          peer: IpamGenericVLAN
+          label: Tagged VLANs
+          identifier: interface_l2__tagged_vlan
+          on_delete: no-action
+          order_weight: 1550
+        - name: untagged_vlan
+          peer: IpamGenericVLAN
+          label: Untagged VLAN
+          identifier: interface_l2__untagged_vlan
+          cardinality: one
+          max_count: 1
+          on_delete: no-action
+          order_weight: 1500
+    - kind: IpamPrefix
+      relationships:
+        - name: vlan
+          peer: IpamGenericVLAN
+          kind: Attribute
+          identifier: vlan__prefix
+          cardinality: one
+          max_count: 1
+          on_delete: no-action
+          order_weight: 1450

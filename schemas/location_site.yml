@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# Site model.
+#
+#   LocationSite -> a site (LocationGeneric + LocationHosting) under a
+#                   LocationMetro, parent of LocationBuilding.
+#                   `vlans` lists the VLANs homed at the site.
+#
+# DERIVED from the live Infrahub schema (main) on 2026-11-21: this model had
+# no source file on disk. Server-side defaults, inherited fields and the
+# auto-generated group/profile/template relationships are omitted.
+#
+# Requires these kinds from schema files not in this repo yet:
+#   DcimPhysicalDevice, IpamPrefix, LocationBuilding, LocationGeneric, LocationHosting, LocationMetro, OrganizationGeneric
+# ---------------------------------------------------------------------------
+version: '1.0'
+generics: []
+nodes:
+  - name: Site
+    namespace: Location
+    icon: mdi:map-marker-radius
+    include_in_menu: false
+    menu_placement: LocationGeneric
+    inherit_from:
+      - LocationGeneric
+      - LocationHosting
+    display_label: '{{ name__value }}'
+    human_friendly_id:
+      - name__value
+    uniqueness_constraints:
+      - - name__value
+      - - shortname__value
+    order_by:
+      - name__value
+    parent: LocationMetro
+    children: LocationBuilding
+    attributes:
+      - name: facility_id
+        kind: Text
+        optional: true
+        order_weight: 1100
+      - name: physical_address
+        kind: Text
+        optional: true
+        order_weight: 1500
+    relationships:
+      - name: owner
+        peer: OrganizationGeneric
+        identifier: locationsite__organizationgeneric
+        cardinality: one
+        max_count: 1
+        on_delete: no-action
+        order_weight: 6000
+      # Reverse of IpamGenericVLAN.site (schemas/ipam_vlan.yml).
+      - name: vlans
+        peer: IpamGenericVLAN
+        label: VLANs
+        identifier: site__vlan
+        on_delete: no-action
+        order_weight: 6100
+extensions:
+  nodes:
+    - kind: OrganizationProvider
+      relationships:
+        - name: sites
+          peer: LocationSite
+          identifier: locationsite__organizationprovider
+          on_delete: no-action
+          order_weight: 7000
