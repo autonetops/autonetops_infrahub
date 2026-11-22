@@ -1,9 +1,14 @@
 # Read contract for the vrf_rd generator (generators/vrf_rd.py).
 #
-# $vrf is the target (one run per member of the `vrfs` group). Every
-# instance of the VRF comes back with its PE's interfaces, so the generator
-# can pick the loopback (the RD's IP part) and check the RDs of one VRF are
-# distinct across PEs in the same run.
+# $vrf is the target (one run per member of the `vrfs` group).
+#
+# - IpamVRF.instances: the PEs that already carry the VRF, with their PE's
+#   interfaces (loopback = the RD's IP part) and the interfaces bound today
+#   (with their addresses' VRFs, to spot bindings IPAM contradicts).
+# - IpamIPAddress in the VRF: where IPAM says the VRF is attached - every
+#   interface holding such an address is an attachment of its device's
+#   instance (created when missing). The device's interfaces come along so a
+#   new instance's RD can be derived in the same run.
 query vrf_rd($vrf: String!) {
   IpamVRF(name__value: $vrf) {
     edges {
@@ -25,22 +30,22 @@ query vrf_rd($vrf: String!) {
               rd_mode {
                 value
               }
-              device {
-                node {
-                  name {
-                    value
-                  }
-                  interfaces {
-                    edges {
-                      node {
-                        name {
-                          value
-                        }
-                        ... on InterfaceLayer3 {
-                          ip_addresses {
-                            edges {
+              interfaces {
+                edges {
+                  node {
+                    id
+                    ... on DcimInterface {
+                      name {
+                        value
+                      }
+                    }
+                    ... on InterfaceLayer3 {
+                      ip_addresses {
+                        edges {
+                          node {
+                            vrf {
                               node {
-                                address {
+                                name {
                                   value
                                 }
                               }
@@ -50,6 +55,71 @@ query vrf_rd($vrf: String!) {
                       }
                     }
                   }
+                }
+              }
+              device {
+                node {
+                  id
+                  name {
+                    value
+                  }
+                  ...DeviceLoopbacks
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  IpamIPAddress(vrf__name__value: $vrf) {
+    edges {
+      node {
+        address {
+          value
+        }
+        interface {
+          node {
+            id
+            ... on DcimInterface {
+              name {
+                value
+              }
+              device {
+                node {
+                  id
+                  name {
+                    value
+                  }
+                  ...DeviceLoopbacks
+                }
+              }
+            }
+            ... on InterfaceLayer2 {
+              l2_mode {
+                value
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment DeviceLoopbacks on DcimGenericDevice {
+  interfaces {
+    edges {
+      node {
+        name {
+          value
+        }
+        ... on InterfaceLayer3 {
+          ip_addresses {
+            edges {
+              node {
+                address {
+                  value
                 }
               }
             }

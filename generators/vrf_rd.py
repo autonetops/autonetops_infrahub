@@ -1,20 +1,30 @@
-"""Write the per-PE route distinguisher of every instance of one VRF.
+"""Per-PE VRF instances from IPAM: attachment interfaces + route distinguishers.
 
-Rule: ``IpamVRFInstance.route_distinguisher = <PE Loopback0 IPv4>:<IpamVRF.vrf_id>``
-(RFC 4364 Type 1). One RD per PE - never one per VRF - so a site dual-homed
-to two PEs yields two distinct VPNv4 routes: the route reflector reflects
-both, remote PEs can multipath across them, and the RD's IP names the
-originating PE.
+One run per member of the ``vrfs`` group (one VRF). Two things, in order:
 
-Runs once per member of the ``vrfs`` group. Instances whose ``rd_mode`` is
-``manual`` are left untouched (but still count toward the distinctness
-check). The generator never creates or deletes instances - which PEs carry a
-VRF is data a human (or a later generator) owns.
+1. **Attachments.** IPAM is the source: an interface holding an IP address
+   in the VRF is an attachment of its device's ``IpamVRFInstance``.
+   * missing binding -> added;
+   * device with such an interface but no instance -> instance created
+     (``rd_mode: auto``) - the PE carries the VRF because IPAM says so;
+   * a bound interface whose addresses are all *outside* the VRF -> unbound
+     (IPAM contradicts it). Bound interfaces without any address
+     (unnumbered, not yet addressed) are left alone;
+   * an address on a switchport is reported, never attached (VRF members
+     are routed interfaces).
+   Instances are never deleted: a PE may carry a VRF with no attachment
+   (import-only), so removing one stays a human decision.
+
+2. **RD.** ``route_distinguisher = <PE Loopback0 IPv4>:<IpamVRF.vrf_id>``
+   (RFC 4364 Type 1) on every instance in ``rd_mode: auto``; ``manual``
+   instances keep theirs but still count toward the distinctness check. One
+   RD per PE - never one per VRF - so a site dual-homed to two PEs yields
+   two distinct VPNv4 routes: the route reflector reflects both, remote PEs
+   can multipath across them, and the RD's IP names the originating PE.
 
 Tracking: generator runs are wrapped in ``start_tracking(delete_unused_nodes=True)``.
-The instances are pre-existing objects the generator merely edits, so every
-save opts out of the group context - otherwise a later run that skips an
-instance (manual mode, missing loopback) would delete it.
+Every save opts out of the group context, so nothing this generator writes -
+created instances included - is deleted by a later run.
 """
 
 import ipaddress
@@ -64,52 +74,139 @@ def derive_rd(loopback, vrf_id):
     return f"{loopback}:{vrf_id}"
 
 
+def _node(rel):
+    return rel.get("node") if rel else None
+
+
+def plan(data):
+    """Everything one run should change for one VRF - pure, testable offline.
+
+    Returns ``(vrf, records, notes)``. Each record is one instance (existing,
+    or ``id`` None = to create) with its target RD and the interfaces to
+    bind/unbind (id -> name). Raises ValueError on a state the generator
+    must not write (no vrf_id, PE without loopback, two PEs on one RD).
+    """
+    vrfs = _edges(data["IpamVRF"])
+    if not vrfs:
+        raise ValueError("target VRF not found")
+    vrf = vrfs[0]
+    name, vrf_id = _v(vrf["name"]), _v(vrf["vrf_id"])
+    notes = []
+
+    # where IPAM says the VRF is attached: device id -> {device, ifaces}
+    attach = {}
+    for ip in _edges(data.get("IpamIPAddress")):
+        iface = _node(ip.get("interface"))
+        if not iface or "device" not in iface:
+            continue  # unassigned address
+        dev = iface["device"]["node"]
+        label = f"{_v(dev['name'])}:{_v(iface['name'])}"
+        if _v(iface.get("l2_mode")):
+            notes.append(f"{label} holds {_v(ip['address'])} in {name} but is a switchport - not attached")
+            continue
+        entry = attach.setdefault(dev["id"], {"device": dev, "ifaces": {}})
+        entry["ifaces"][iface["id"]] = _v(iface["name"])
+
+    records = []
+    for inst in _edges(vrf.get("instances")):
+        dev = inst["device"]["node"]
+        derived = attach.pop(dev["id"], {}).get("ifaces", {})
+        bound = {i["id"]: i for i in _edges(inst.get("interfaces"))}
+        remove = {}
+        for iid, iface in bound.items():
+            if iid in derived:
+                continue
+            addr_vrfs = {
+                _v((_node(a.get("vrf")) or {}).get("name"))
+                for a in _edges(iface.get("ip_addresses"))
+            }
+            if addr_vrfs and name not in addr_vrfs:
+                remove[iid] = _v(iface.get("name"))
+        records.append({
+            "id": inst["id"],
+            "device": dev,
+            "rd_mode": _v(inst["rd_mode"]),
+            "current": _v(inst["route_distinguisher"]),
+            "add": {i: n for i, n in derived.items() if i not in bound},
+            "remove": remove,
+        })
+    for dev_id, entry in attach.items():  # IPAM attachments on PEs without an instance
+        records.append({
+            "id": None,
+            "device": entry["device"],
+            "rd_mode": "auto",
+            "current": None,
+            "add": entry["ifaces"],
+            "remove": {},
+        })
+
+    if records and vrf_id is None:
+        raise ValueError(f"{name}: vrf_id is not set - cannot derive the RD of {len(records)} instance(s)")
+
+    problems = []
+    for rec in records:
+        dev_name = _v(rec["device"]["name"])
+        if rec["rd_mode"] == "manual":
+            rec["rd"] = rec["current"]
+            continue
+        lo = loopback_ipv4(_edges(rec["device"].get("interfaces")))
+        if not lo:
+            problems.append(f"{dev_name}: no loopback with an IPv4 address")
+            continue
+        rec["rd"] = derive_rd(lo, vrf_id)
+
+    # two PEs of one VRF on the same RD defeats the whole model
+    seen = {}
+    for rec in records:
+        rd, dev_name = rec.get("rd"), _v(rec["device"]["name"])
+        if rd and rd in seen:
+            problems.append(f"RD {rd} on both {seen[rd]} and {dev_name}")
+        seen.setdefault(rd, dev_name)
+    if problems:
+        raise ValueError(f"{name}: " + "; ".join(problems))
+    return vrf, records, notes
+
+
 class VrfRdGenerator(InfrahubGenerator):
     async def generate(self, data: dict) -> None:
-        vrfs = _edges(data["IpamVRF"])
-        if not vrfs:
-            raise ValueError(f"Target VRF not found: {self.params}")
-        vrf = vrfs[0]
-        name, vrf_id = _v(vrf["name"]), _v(vrf["vrf_id"])
-        instances = _edges(vrf.get("instances"))
-        if not instances:
-            self.logger.info(f"{name}: no instances; nothing to do.")
+        vrf, records, notes = plan(data)
+        name = _v(vrf["name"])
+        for note in notes:
+            self.logger.warning(f"{name}: {note}")
+        if not records:
+            self.logger.info(f"{name}: no instances and no addresses in IPAM; nothing to do.")
             return
-        if vrf_id is None:
-            raise ValueError(
-                f"{name}: vrf_id is not set - cannot derive the RD of its "
-                f"{len(instances)} instance(s)"
+
+        for rec in records:
+            label = f"{name}@{_v(rec['device']['name'])}"
+            ifaces = ", ".join(sorted(rec["add"].values())) or "-"
+            if rec["id"] is None:
+                obj = await self.client.create(
+                    kind="IpamVRFInstance", branch=self.branch_name,
+                    vrf=vrf["id"], device=rec["device"]["id"], rd_mode="auto",
+                    route_distinguisher=rec["rd"], interfaces=sorted(rec["add"]),
+                )
+                await obj.save(update_group_context=False)
+                self.logger.info(f"{label}: created, rd {rec['rd']}, interfaces {ifaces}")
+                continue
+
+            changes = []
+            if rec["current"] != rec["rd"]:
+                changes.append(f"rd {rec['current']} -> {rec['rd']}")
+            if rec["add"]:
+                changes.append(f"+ {ifaces}")
+            if rec["remove"]:
+                changes.append("- " + ", ".join(sorted(rec["remove"].values())) + " (IPAM: not in this VRF)")
+            if not changes:
+                self.logger.info(f"{label}: rd {rec['rd']} (unchanged)")
+                continue
+            obj = await self.client.get(
+                kind="IpamVRFInstance", id=rec["id"], branch=self.branch_name, include=["interfaces"]
             )
-
-        wanted = {}  # instance id -> (device, current rd, target rd)
-        problems = []
-        for inst in instances:
-            device = inst["device"]["node"]
-            dev_name = _v(device["name"])
-            current = _v(inst["route_distinguisher"])
-            if _v(inst["rd_mode"]) == "manual":
-                wanted[inst["id"]] = (dev_name, current, current)
-                continue
-            lo = loopback_ipv4(_edges(device.get("interfaces")))
-            if not lo:
-                problems.append(f"{dev_name}: no loopback with an IPv4 address")
-                continue
-            wanted[inst["id"]] = (dev_name, current, derive_rd(lo, vrf_id))
-
-        # two PEs of one VRF on the same RD defeats the whole model
-        seen = {}
-        for dev_name, _cur, rd in wanted.values():
-            if rd and rd in seen:
-                problems.append(f"RD {rd} on both {seen[rd]} and {dev_name}")
-            seen.setdefault(rd, dev_name)
-        if problems:
-            raise ValueError(f"{name}: " + "; ".join(problems))
-
-        for inst_id, (dev_name, current, rd) in wanted.items():
-            if current == rd:
-                self.logger.info(f"{name}@{dev_name}: rd {rd} (unchanged)")
-                continue
-            obj = await self.client.get(kind="IpamVRFInstance", id=inst_id, branch=self.branch_name)
-            obj.route_distinguisher.value = rd
+            obj.route_distinguisher.value = rec["rd"]
+            for iid in rec["add"]:
+                obj.interfaces.add(iid)
+            for iid in rec["remove"]:
+                obj.interfaces.remove(iid)
             await obj.save(update_group_context=False)
-            self.logger.info(f"{name}@{dev_name}: rd {current} -> {rd}")
+            self.logger.info(f"{label}: " + "; ".join(changes))

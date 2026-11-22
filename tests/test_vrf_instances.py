@@ -18,7 +18,7 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from checks.vrf_instance_integrity import find_violations  # noqa: E402
-from generators.vrf_rd import VrfRdGenerator, derive_rd, loopback_ipv4  # noqa: E402
+from generators.vrf_rd import VrfRdGenerator, derive_rd, loopback_ipv4, plan  # noqa: E402
 from transforms.device_config import (  # noqa: E402
     interface_vrf,
     parse_vrf_instances,
@@ -63,16 +63,36 @@ class _Gen(VrfRdGenerator):
         self.logger = logging.getLogger("test")
 
 
-def _vrf(vrf_id, *instances):
-    return {"IpamVRF": edges({"name": v("s100"), "vrf_id": v(vrf_id), "instances": edges(*instances)})}
-
-
-def _inst(dev, lo, rd=None, mode="auto"):
+def _vrf(vrf_id, *instances, ips=()):
     return {
-        "id": dev,
+        "IpamVRF": edges({"id": "vrf-s100", "name": v("s100"), "vrf_id": v(vrf_id), "instances": edges(*instances)}),
+        "IpamIPAddress": edges(*ips),
+    }
+
+
+def _dev(name, lo):
+    return {"id": f"dev-{name}", "name": v(name), "interfaces": edges(iface("Loopback0", lo))}
+
+
+def _inst(dev, lo, rd=None, mode="auto", bound=()):
+    """bound: (iface id, name, [vrf names of its addresses])"""
+    return {
+        "id": f"inst-{dev}",
         "route_distinguisher": v(rd),
         "rd_mode": v(mode),
-        "device": {"node": {"name": v(dev), "interfaces": edges(iface("Loopback0", lo))}},
+        "interfaces": edges(*[
+            {"id": i, "name": v(n), "ip_addresses": edges(*[{"vrf": {"node": {"name": v(x)}} if x else None} for x in vrfs])}
+            for i, n, vrfs in bound
+        ]),
+        "device": {"node": _dev(dev, lo)},
+    }
+
+
+def _ip(addr, dev, lo, iface_id, iface_name, l2_mode=None):
+    """An IpamIPAddress in the VRF, on interface iface_name of dev."""
+    return {
+        "address": v(addr),
+        "interface": {"node": {"id": iface_id, "name": v(iface_name), "l2_mode": v(l2_mode), "device": {"node": _dev(dev, lo)}}},
     }
 
 
@@ -93,6 +113,78 @@ def test_generator_noop_when_up_to_date():
     data = _vrf(100, _inst("PE-A", "10.0.0.1/32", rd="10.0.0.1:100"),
                 _inst("PE-B", "10.0.0.2/32", rd="65000:7", mode="manual"))
     asyncio.run(_Gen().generate(data))
+
+
+def _by_dev(records):
+    return {r["device"]["name"]["value"]: r for r in records}
+
+
+def test_plan_binds_ipam_attachment_to_existing_instance():
+    data = _vrf(100, _inst("PE-A", "10.0.0.1/32", rd="10.0.0.1:100"),
+                ips=[_ip("172.16.0.1/29", "PE-A", "10.0.0.1/32", "a-vl100", "Vlan100")])
+    _vrf_node, records, notes = plan(data)
+    rec = _by_dev(records)["PE-A"]
+    assert (rec["id"], rec["add"], rec["remove"], rec["rd"]) == ("inst-PE-A", {"a-vl100": "Vlan100"}, {}, "10.0.0.1:100")
+    assert notes == []
+
+
+def test_plan_creates_instance_where_ipam_attaches_the_vrf():
+    data = _vrf(100, ips=[_ip("172.16.0.2/29", "RR-1", "10.0.0.9/32", "r-vl100", "Vlan100")])
+    _vrf_node, (rec,), _ = plan(data)
+    assert rec["id"] is None
+    assert rec["add"] == {"r-vl100": "Vlan100"}
+    assert rec["rd"] == "10.0.0.9:100"
+
+
+def test_plan_unbinds_only_what_ipam_contradicts():
+    data = _vrf(100, _inst("PE-A", "10.0.0.1/32", rd="10.0.0.1:100", bound=[
+        ("a-moved", "Gi0/2", ["v183"]),    # its address now lives in another VRF -> unbind
+        ("a-global", "Gi0/3", [None]),     # address in the global table -> unbind
+        ("a-unnum", "Tunnel9", []),        # no address at all -> keep
+        ("a-ok", "Vlan100", ["s100"]),     # still in this VRF -> keep
+    ]), ips=[_ip("172.16.0.1/29", "PE-A", "10.0.0.1/32", "a-ok", "Vlan100")])
+    rec = _by_dev(plan(data)[1])["PE-A"]
+    assert rec["remove"] == {"a-moved": "Gi0/2", "a-global": "Gi0/3"}
+    assert rec["add"] == {}
+
+
+def test_plan_never_attaches_a_switchport():
+    data = _vrf(100, ips=[_ip("172.16.0.3/29", "SW-1", "10.0.0.8/32", "s-e1", "Ethernet1", l2_mode="access")])
+    _vrf_node, records, notes = plan(data)
+    assert records == []
+    assert "SW-1:Ethernet1" in notes[0] and "switchport" in notes[0]
+
+
+def test_plan_needs_vrf_id_once_ipam_attaches_it():
+    with pytest.raises(ValueError, match="vrf_id is not set"):
+        plan(_vrf(None, ips=[_ip("172.16.0.1/29", "PE-A", "10.0.0.1/32", "a1", "Vlan100")]))
+
+
+class _FakeNode:
+    def __init__(self, store, **data):
+        self.store, self.data = store, data
+
+    async def save(self, update_group_context=True):
+        assert update_group_context is False  # never tracked -> never auto-deleted
+        self.store.append(self.data)
+
+
+class _FakeClient:
+    def __init__(self):
+        self.created = []
+
+    async def create(self, kind, branch=None, **data):
+        return _FakeNode(self.created, kind=kind, **data)
+
+
+def test_generate_creates_untracked_instance_with_rd_and_interfaces():
+    gen = _Gen()
+    gen.client, gen.branch = _FakeClient(), "main"
+    asyncio.run(gen.generate(_vrf(100, ips=[_ip("172.16.0.2/29", "RR-1", "10.0.0.9/32", "r-vl100", "Vlan100")])))
+    assert gen.client.created == [{
+        "kind": "IpamVRFInstance", "vrf": "vrf-s100", "device": "dev-RR-1", "rd_mode": "auto",
+        "route_distinguisher": "10.0.0.9:100", "interfaces": ["r-vl100"],
+    }]
 
 
 # --- transform ----------------------------------------------------------
