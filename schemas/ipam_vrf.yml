@@ -20,8 +20,9 @@
 # the RD alone names the originating PE. Route targets stay on IpamVRF: they
 # are the service's membership policy and identical on every PE.
 #
-# IpamVRF.vrf_rd / route_distinguisher (one RD per VRF) are deprecated; the
-# renderer reads IpamVRFInstance.route_distinguisher only.
+# IpamVRF.vrf_rd / route_distinguisher (one RD per VRF) were removed on
+# 2026-11-22 (schemas/migrations/retire_vrf_deprecated_rd.yml); the RD lives
+# on IpamVRFInstance.route_distinguisher only.
 version: "1.0"
 
 nodes:
@@ -108,18 +109,6 @@ extensions:
           description: Service-wide number, the right-hand side of every per-PE RD (<loopback>:vrf_id).
           optional: true
           order_weight: 1010
-        # one RD per VRF cannot express a multi-PE service; kept only so
-        # existing data stays readable
-        - name: vrf_rd
-          kind: Text
-          label: Route Distinguisher (deprecated)
-          optional: true
-          deprecation: Per-PE RDs live on IpamVRFInstance.route_distinguisher
-        - name: route_distinguisher
-          kind: Text
-          label: Route Distinguisher (deprecated)
-          optional: true
-          deprecation: Per-PE RDs live on IpamVRFInstance.route_distinguisher
       relationships:
         - name: instances
           peer: IpamVRFInstance

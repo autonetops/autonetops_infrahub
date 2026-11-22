@@ -4,8 +4,8 @@
 # time and aborts the whole import ("Unable to find the node vrfs / CoreGroup")
 # when the group is missing. Object files load before definitions.
 #
-# Membership is data (scripts/migrate_vrf_instances.py adds every VRF with a
-# vrf_id); only the group itself lives here.
+# Membership is data (every VRF with a vrf_id belongs in it); only the
+# group itself lives here.
 apiVersion: infrahub.app/v1
 kind: Object
 spec:

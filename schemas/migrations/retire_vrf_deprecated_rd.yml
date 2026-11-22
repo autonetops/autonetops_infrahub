@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# Remove the deprecated one-RD-per-VRF attributes from IpamVRF (2026-11-22).
+# Per-PE RDs live on IpamVRFInstance.route_distinguisher (schemas/ipam_vrf.yml),
+# written by the vrf_rd generator. Schema loads merge with the live schema,
+# so the removal has to be explicit. The stored values are deleted with the
+# attributes.
+#
+#   infrahubctl schema load schemas/migrations/retire_vrf_deprecated_rd.yml
+#
+# vrf_rd comes back if schema-library extensions/vrf is reloaded as is.
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+extensions:
+  nodes:
+    - kind: IpamVRF
+      attributes:
+        - name: vrf_rd
+          kind: Text
+          state: absent
+        - name: route_distinguisher
+          kind: Text
+          state: absent
