@@ -33,6 +33,7 @@ objects:
 menus:
   - menus/menu-intent.yml
   - menus/menu-loadbalancer.yml
+  - menus/menu-ipam.yml
 #   - menus/sdwan.yml
 
 queries:

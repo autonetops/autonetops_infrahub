@@ -1,0 +1,25 @@
+# yaml-language-server:
+#   $schema=https://schema.infrahub.app/infrahub/menu/latest.json
+#
+# Additions to the built-in IPAM menu (schemas/ipam_vrf.yml):
+#
+#   IPAM
+#     ├── ...
+#     ├── VRFs           (IpamVRF, built-in entry)
+#     └── VRF Instances  (IpamVRFInstance) - one per VRF x PE, holds the RD
+#
+# The parent is the protected Builtin/IPAM item, referenced by its
+# namespace+name; it is not redefined here. IpamVRFInstance carries
+# include_in_menu: false so the auto-menu adds no second copy.
+---
+apiVersion: infrahub.app/v1
+kind: Menu
+spec:
+  data:
+    - namespace: Ipam
+      name: VRFInstance
+      label: "VRF Instances"
+      kind: IpamVRFInstance
+      icon: "mdi:router-network"
+      order_weight: 2001
+      parent: ["Builtin", "IPAM"]

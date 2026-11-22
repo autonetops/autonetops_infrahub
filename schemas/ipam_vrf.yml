@@ -31,7 +31,7 @@ nodes:
     label: VRF Instance
     description: A VRF as provisioned on one PE. Holds that PE's route distinguisher.
     icon: mdi:router-network
-    include_in_menu: true
+    include_in_menu: false   # listed under IPAM by menus/menu-ipam.yml
     human_friendly_id:
       - vrf__name__value
       - device__name__value
