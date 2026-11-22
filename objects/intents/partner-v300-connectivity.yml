@@ -1,0 +1,293 @@
+---
+# Intent: partner-v300-connectivity  (solução 300)
+#
+# Source: docs/intent/conectividade-parceiro-externo.md. This file holds the
+# part of that document today's compilers can turn into artifacts:
+#
+#   v300-routing  (IntentRoutingContract)       -> device-configuration,
+#                                                  contract-expectations,
+#                                                  intent-series
+#   v300-signals  (IntentObservabilityContract) -> prometheus-rules,
+#                                                  telegraf-inputs
+#   3 typed invariants                          -> merge checks + the
+#                                                  forbidden-behaviour terms
+#                                                  of the expectations
+#
+# Not here, because nothing compiles them yet (document sections 3 and 10):
+# v300-tunnel, v300-shared-reach, v300-tunnel-filter, v300-firewall, the
+# free-form policies and invariants. v300-lb-service is the existing
+# ServiceVIP / LoadbalancerPool / LoadbalancerSnatPool objects on LB-DC2.
+#
+# NOT listed in .infrahub.yml on purpose: load it on a branch and review.
+#
+#   infrahubctl object load objects/intents/partner-v300-connectivity.yml --branch <branch>
+#   infrahubctl generator vrf_rd vrf=v300 --branch <branch>     # RD of the DC02 instance
+#   # then add both VPN routers to the groups network_devices and
+#   # monitored_devices (additive - never upsert the group's member list)
+#
+# Placeholders to confirm with network engineering (document section 9,
+# pendência 1): intent/tenant owner, priority, the partner's name, and the
+# organization that owns AS 20.
+
+# ---------------------------------------------------------------- supporting
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentZone
+  data:
+    - name: bootcamp-partner
+      description: "Every external partner attached to the bootcamp DCs (VRFs v<N>)"
+      zone_type: partner
+---
+# RN03: the partner VRF imports 20:100; accepted partner routes leave with 20:199
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IpamRouteTarget
+  data:
+    - name: "20:100"
+      description: "Shared VRF s100 export - our networks, imported by every partner VRF"
+    - name: "20:199"
+      description: "Partner routes accepted into the shared VRF s100"
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IpamVRF
+  data:
+    - name: v300
+      namespace: bootcamp_dc
+      vrf_id: 300
+      import_rt: "20:100"
+      export_rt: "20:199"
+---
+# DcimDevice.asn points at RoutingAutonomousSystem (not the ...Public kind
+# AS20 / AS1170 already exist as)
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: RoutingAutonomousSystem
+  data:
+    - asn: 20
+      name: AS20
+      description: "Bootcamp DC1/DC2 MPLS core"
+      organization: ING
+    - asn: 1170
+      name: AS1170
+      description: "Partner of solution 300"
+      organization: CUSTOMER300
+---
+# The far end of the tunnel. Sessions are derived from the addressing plan
+# (two interfaces sharing a /30), so the partner side needs an addressed
+# interface. It is outside our management: no platform, no artifacts.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: DcimDevice
+  data:
+    - name: DC01-PE-VPN-L2-01
+      asn: ["20", "AS20"]
+    - name: DC02-PE-VPN-L2-01
+      asn: ["20", "AS20"]
+    - name: partner-v300-ce
+      description: "Partner equipment of solution 300 (not managed by us); modelled to anchor the tunnel /30 and the eBGP session"
+      status: active
+      role: cpe
+      location: bootcamp_customer_300
+      asn: ["1170", "AS1170"]
+      interfaces:
+        kind: InterfaceVirtual
+        data:
+          - name: vpn-v300
+            description: "Tunnel to DC01/DC02-PE-VPN-L2-01 Tunnel300"
+            role: peer
+            ip_addresses:
+              data:
+                - address: 192.168.28.194/30
+                  description: "Partner side of rede_tunel 192.168.28.192/30 (second address)"
+                  ip_namespace: bootcamp_dc
+---
+# DC02 gets its own instance of v300; its RD comes from the vrf_rd generator
+# (<Loopback0>:300).
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IpamVRFInstance
+  data:
+    - vrf: v300
+      device: DC02-PE-VPN-L2-01
+      rd_mode: auto
+---
+# Tunnel300 forwards in v300 on both routers. Bound from the interface side:
+# the instance's `interfaces` peer (InterfaceLayer3) has no HFID to reference.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: InterfaceVirtual
+  data:
+    - device: DC01-PE-VPN-L2-01
+      name: Tunnel300
+      vrf_instances:
+        - ["v300", "DC01-PE-VPN-L2-01"]
+    - device: DC02-PE-VPN-L2-01
+      name: Tunnel300
+      vrf_instances:
+        - ["v300", "DC02-PE-VPN-L2-01"]
+---
+# prefixos_parceiro (RN10). Bound to the VRF: the prefix-authorization check
+# only lets a contract authorize space inside the tenant's VRFs.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IpamPrefix
+  data:
+    - prefix: 100.64.100.1/32
+      status: active
+      member_type: address
+      ip_namespace: bootcamp_dc
+      vrf: v300
+      description: "v300 prefixos_parceiro - the only prefix accepted from the partner"
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentTenant
+  data:
+    - name: partner-v300
+      description: "Parceiro da solução 300. Nome a confirmar: a VRF diz customer-z, o BGP diz customer-y."
+      owner: engenharia-de-rede
+      vrfs:
+        - v300
+      member_of_groups:
+        - intent_tenants
+
+# ---------------------------------------------------------------- invariants
+# Shared by every partner solution: link the next partner-v<N>-connectivity
+# intent to these same three objects.
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentNoLeakInvariant
+  data:
+    - name: partner-isolation
+      description: "A VRF de um parceiro só importa 20:100. Nenhuma rota de um parceiro aparece na VRF de outro."
+      severity: critical
+      scope: intent
+      expression: "nenhum contrato da zona bootcamp-partner exporta as rotas de outro parceiro (export_tenants)"
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentPrefixAuthorizationInvariant
+  data:
+    - name: partner-prefix-authorization
+      description: "Todo prefixo aceito de um parceiro está em prefixos_parceiro da solução."
+      severity: critical
+      scope: intent
+      expression: "allowed_prefixes do contrato dentro dos prefixos da VRF do parceiro"
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentNoDefaultOriginationInvariant
+  data:
+    - name: partner-export-public-only
+      description: "Para um parceiro só saem 145.245.114.0/24 e 145.245.115.0/24. Nunca rota padrão."
+      severity: critical
+      scope: intent
+      expression: "prefixos anunciados ao parceiro <= 2 e nenhum 0.0.0.0/0"
+
+# -------------------------------------------------------------------- intent
+---
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentDefinition
+  data:
+    - name: partner-v300-connectivity
+      description: "O parceiro troca com a empresa somente o tráfego previsto no acordo, por um caminho cifrado, isolado dos outros parceiros e inspecionado."
+      domain: connectivity
+      owner: engenharia-de-rede
+      status: active
+      tenant: partner-v300
+      invariants:
+        - partner-isolation
+        - partner-prefix-authorization
+        - partner-export-public-only
+
+# ----------------------------------------------------------------- contracts
+---
+# RN02, RN03, RN10 - níveis 2 (E2.1, E2.2)
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentRoutingContract
+  data:
+    - name: v300-routing
+      description: "Trocamos com o parceiro só as rotas previstas: os prefixos cadastrados na solução, no máximo 100."
+      consumer: partner-v300
+      status: active
+      intent: partner-v300-connectivity
+      role: customer_edge
+      peer_asn: 1170
+      afi_safis:
+        - ipv4-unicast
+      max_prefixes_ipv4: 100
+      zone: bootcamp-partner
+      pe_devices:
+        - DC01-PE-VPN-L2-01
+        - DC02-PE-VPN-L2-01
+      ce_devices:
+        - partner-v300-ce
+      allowed_prefixes:
+        - ["100.64.100.1/32", "bootcamp_dc"]
+      export_deny_zones:
+        - bootcamp-partner
+      member_of_groups:
+        - routing_contracts
+---
+# Níveis 1 a 5: only the three signals the catalog has today (E2.1, E2.2, E2.3)
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: IntentObservabilityContract
+  data:
+    - name: v300-signals
+      description: "Cada promessa da solução 300 tem evidência recente."
+      consumer: engenharia-de-rede
+      status: active
+      intent: partner-v300-connectivity
+      member_of_groups:
+        - observability_contracts
+      signals:
+        data:
+          - name: v300-bgp-session-down
+            signal: bgp_session_state
+            operator: eq
+            threshold: 0
+            for_seconds: 120
+            frequency_seconds: 60
+            severity: sev2
+            condition: "E2.1 - sessão BGP com o parceiro fora de Established por 120 s"
+            watches: v300-routing
+          - name: v300-prefixes-over-limit
+            signal: bgp_route_count
+            direction: inbound
+            operator: gt
+            threshold_ref: max_prefixes
+            for_seconds: 0
+            frequency_seconds: 60
+            severity: sev3
+            condition: "E2.2 - o parceiro anuncia mais prefixos que o limite do contrato"
+            watches: v300-routing
+          - name: v300-export-beyond-public-blocks
+            signal: policy_export_violation
+            direction: outbound
+            operator: gt
+            threshold: 2
+            for_seconds: 0
+            frequency_seconds: 60
+            severity: sev2
+            condition: "E2.3 - anunciamos ao parceiro mais que os 2 blocos públicos"
+            watches: v300-routing
