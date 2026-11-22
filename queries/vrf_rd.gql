@@ -1,0 +1,61 @@
+# Read contract for the vrf_rd generator (generators/vrf_rd.py).
+#
+# $vrf is the target (one run per member of the `vrfs` group). Every
+# instance of the VRF comes back with its PE's interfaces, so the generator
+# can pick the loopback (the RD's IP part) and check the RDs of one VRF are
+# distinct across PEs in the same run.
+query vrf_rd($vrf: String!) {
+  IpamVRF(name__value: $vrf) {
+    edges {
+      node {
+        id
+        name {
+          value
+        }
+        vrf_id {
+          value
+        }
+        instances {
+          edges {
+            node {
+              id
+              route_distinguisher {
+                value
+              }
+              rd_mode {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                  interfaces {
+                    edges {
+                      node {
+                        name {
+                          value
+                        }
+                        ... on InterfaceLayer3 {
+                          ip_addresses {
+                            edges {
+                              node {
+                                address {
+                                  value
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

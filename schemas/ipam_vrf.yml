@@ -1,0 +1,149 @@
+---
+# yaml-language-server: $schema=https://schema.infrahub.app/infrahub/schema/latest.json
+#
+# Per-PE VRF instances: the route distinguisher belongs to "VRF X on PE Y",
+# not to the VRF.
+#
+#   IpamVRF            the service: name, vrf_id, import/export route targets
+#     └── IpamVRFInstance   one per PE carrying the VRF: route_distinguisher, interfaces
+#           ├── device      DcimGenericDevice (the PE)
+#           └── interfaces  InterfaceLayer3 - the routed attachment points only
+#                           (SVI, sub-interface, routed port, tunnel). A switchport
+#                           is never a VRF member: its VLAN reaches the VRF through
+#                           the SVI. Physical/virtual interfaces inherit both L2 and
+#                           L3, so "no l2_mode on a member" is enforced by
+#                           checks/vrf_instance_integrity.py, not by the peer type.
+#
+# RD rule (generators/vrf_rd.py): rd = <PE Loopback0 IPv4>:<IpamVRF.vrf_id>
+# (Type 1). A unique RD per PE keeps both paths of a dual-homed site alive
+# through the route reflector, so remote PEs can multipath between them and
+# the RD alone names the originating PE. Route targets stay on IpamVRF: they
+# are the service's membership policy and identical on every PE.
+#
+# IpamVRF.vrf_rd / route_distinguisher (one RD per VRF) are deprecated; the
+# renderer reads IpamVRFInstance.route_distinguisher only.
+version: "1.0"
+
+nodes:
+  - name: VRFInstance
+    namespace: Ipam
+    label: VRF Instance
+    description: A VRF as provisioned on one PE. Holds that PE's route distinguisher.
+    icon: mdi:router-network
+    include_in_menu: true
+    human_friendly_id:
+      - vrf__name__value
+      - device__name__value
+    order_by:
+      - route_distinguisher__value
+    display_label: "{{ route_distinguisher__value }}"
+    uniqueness_constraints:
+      - [vrf, device]
+    attributes:
+      - name: route_distinguisher
+        kind: Text
+        label: Route Distinguisher
+        description: >-
+          Written by the vrf_rd generator as <PE Loopback0>:<vrf_id> while
+          rd_mode is auto. Must be unique across the network.
+        optional: true
+        # no `unique: true`: Infrahub counts empty values as equal, so a second
+        # not-yet-generated instance would collide. Uniqueness is enforced by
+        # checks/vrf_instance_integrity.py (network-wide) and the vrf_rd
+        # generator (per VRF).
+        regex: '^((25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}|\d{1,10}):\d{1,10}$'
+        order_weight: 1000
+      - name: rd_mode
+        kind: Dropdown
+        label: RD Mode
+        description: auto = the generator owns route_distinguisher; manual = a human set it and the generator leaves it alone.
+        default_value: auto
+        optional: false
+        choices:
+          - name: auto
+            label: Auto (generator)
+            color: "#A9DFBF"
+          - name: manual
+            label: Manual override
+            color: "#F9E79F"
+        order_weight: 1100
+      - name: description
+        kind: Text
+        optional: true
+        order_weight: 1200
+    relationships:
+      - name: vrf
+        peer: IpamVRF
+        label: VRF
+        kind: Parent
+        cardinality: one
+        optional: false
+        identifier: ipamvrf__instances
+        order_weight: 900
+      - name: device
+        peer: DcimGenericDevice
+        label: Device
+        kind: Attribute
+        cardinality: one
+        optional: false
+        identifier: dcimgenericdevice__vrf_instances
+        order_weight: 950
+      - name: interfaces
+        peer: InterfaceLayer3
+        label: Attachment Interfaces
+        description: Routed interfaces in this VRF (SVI, sub-interface, routed port). Never a switchport.
+        kind: Generic
+        cardinality: many
+        optional: true
+        identifier: ipamvrfinstance__interfaces
+        order_weight: 1300
+
+extensions:
+  nodes:
+    - kind: IpamVRF
+      attributes:
+        - name: vrf_id
+          kind: Number
+          label: VRF ID
+          description: Service-wide number, the right-hand side of every per-PE RD (<loopback>:vrf_id).
+          optional: true
+          order_weight: 1010
+        # one RD per VRF cannot express a multi-PE service; kept only so
+        # existing data stays readable
+        - name: vrf_rd
+          kind: Text
+          label: Route Distinguisher (deprecated)
+          optional: true
+          deprecation: Per-PE RDs live on IpamVRFInstance.route_distinguisher
+        - name: route_distinguisher
+          kind: Text
+          label: Route Distinguisher (deprecated)
+          optional: true
+          deprecation: Per-PE RDs live on IpamVRFInstance.route_distinguisher
+      relationships:
+        - name: instances
+          peer: IpamVRFInstance
+          label: Instances (per PE)
+          kind: Component
+          cardinality: many
+          optional: true
+          identifier: ipamvrf__instances
+          order_weight: 1400
+    - kind: DcimGenericDevice
+      relationships:
+        - name: vrf_instances
+          peer: IpamVRFInstance
+          label: VRF Instances
+          kind: Generic
+          cardinality: many
+          optional: true
+          identifier: dcimgenericdevice__vrf_instances
+    - kind: InterfaceLayer3
+      relationships:
+        - name: vrf_instances
+          peer: IpamVRFInstance
+          label: VRF Instances
+          kind: Generic
+          cardinality: many
+          optional: true
+          identifier: ipamvrfinstance__interfaces

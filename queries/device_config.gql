@@ -45,6 +45,34 @@ query device_config($device: String!) {
             }
           }
         }
+        # this PE's own instance of each VRF: its RD and attachment interfaces
+        vrf_instances {
+          edges {
+            node {
+              route_distinguisher {
+                value
+              }
+              vrf {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
+              interfaces {
+                edges {
+                  node {
+                    ... on DcimInterface {
+                      name {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
         interfaces {
           edges {
             node {
@@ -162,9 +190,6 @@ query device_config($device: String!) {
                   edges {
                     node {
                       name {
-                        value
-                      }
-                      vrf_rd {
                         value
                       }
                       import_rt {

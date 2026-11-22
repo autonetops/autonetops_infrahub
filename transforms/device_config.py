@@ -135,6 +135,7 @@ def parse_device(data):
     asn = _node(node.get("asn"))
     primary = _node(node.get("primary_address"))
     return {
+        "vrf_instances": parse_vrf_instances(node),
         "name": _v(node["name"]),
         "role": _v(node.get("role")),
         # the out-of-band management address (CIDR) - not an interface in
@@ -147,6 +148,50 @@ def parse_device(data):
         "asn": _v(asn["asn"]) if asn else None,
         "interfaces": interfaces,
     }
+
+
+def parse_vrf_instances(node):
+    """This PE's IpamVRFInstance per VRF name: its own RD plus its routed
+    attachment interfaces (each gets ``vrf forwarding``). Members are L3
+    only - checks/vrf_instance_integrity.py rejects switchports."""
+    instances = {}
+    for inst in _edges(node.get("vrf_instances")):
+        vrf = _node(inst.get("vrf"))
+        if not vrf:
+            continue
+        instances[_v(vrf["name"])] = {
+            "rd": _v(inst.get("route_distinguisher")),
+            "interfaces": {_v(i["name"]) for i in _edges(inst.get("interfaces"))},
+        }
+    return instances
+
+
+def vrf_rd(device, vrf_name):
+    """The RD of ``vrf_name`` on this PE - always the PE's own instance,
+    never a VRF-wide value: one RD per PE is what keeps both paths of a
+    dual-homed site alive through the route reflector."""
+    inst = device["vrf_instances"].get(vrf_name)
+    if not inst or not inst["rd"]:
+        raise ValueError(
+            f"{device['name']}: VRF {vrf_name} has no IpamVRFInstance with a "
+            f"route_distinguisher on this device - create the instance and "
+            f"run the vrf_rd generator"
+        )
+    return inst["rd"]
+
+
+def interface_vrf(device, iface, cust_vrf_by_neighbor_dev):
+    """The VRF an L3 interface forwards in.
+
+    An explicit IpamVRFInstance binding wins. Without one, fall back to the
+    contract-derived rule: a ``cust`` interface facing a CE of a tenant
+    contract sits in that tenant's VRF."""
+    for vrf_name, inst in device["vrf_instances"].items():
+        if iface["name"] in inst["interfaces"]:
+            return vrf_name
+    remote_dev = iface["remote"]["device"] if iface["remote"] else None
+    vrf_name = cust_vrf_by_neighbor_dev.get(remote_dev)
+    return vrf_name if vrf_name and iface["role"] == "cust" else None
 
 
 def _invariant_type(typename):
@@ -183,9 +228,9 @@ def parse_contracts(data):
                 v = vrfs[0]
                 import_rt = _node(v.get("import_rt"))
                 export_rt = _node(v.get("export_rt"))
+                # no RD here: it is per PE (IpamVRFInstance), see vrf_rd()
                 vrf = {
                     "name": _v(v["name"]),
-                    "rd": _v(v.get("vrf_rd")),
                     "import_rt": _v(import_rt["name"]) if import_rt else None,
                     "export_rt": _v(export_rt["name"]) if export_rt else None,
                 }
@@ -557,7 +602,7 @@ def _iosxe_provider_edge(device, contracts, policies):
         vrf = c["vrf"]
         lines += [
             f"vrf definition {vrf['name']}",
-            f" rd {vrf['rd']}",
+            f" rd {vrf_rd(device, vrf['name'])}",
             " address-family ipv4",
             f"  route-target import {vrf['import_rt']}",
             f"  route-target export {vrf['export_rt']}",
@@ -578,9 +623,8 @@ def _iosxe_provider_edge(device, contracts, policies):
         lines.append(f"interface {iface['name']}")
         if iface["description"]:
             lines.append(f" description {iface['description']}")
-        remote_dev = iface["remote"]["device"] if iface["remote"] else None
-        vrf_name = cust_vrf_by_neighbor_dev.get(remote_dev)
-        if vrf_name and iface["role"] == "cust":
+        vrf_name = interface_vrf(device, iface, cust_vrf_by_neighbor_dev)
+        if vrf_name:
             lines.append(f" vrf forwarding {vrf_name}")
         lines.append(f" ip address {addr.ip} {addr.netmask}")
         if iface["role"] == "core":
@@ -741,8 +785,6 @@ def eos_view(device, contracts, policies):
             continue
         name = iface["name"]
         is_loopback = name.lower().startswith(LOOPBACK_PREFIXES)
-        remote_dev = iface["remote"]["device"] if iface["remote"] else None
-        vrf_name = cust_vrf_by_neighbor_dev.get(remote_dev)
         interfaces.append({
             "name": name,
             "description": iface["description"],
@@ -750,7 +792,7 @@ def eos_view(device, contracts, policies):
                 not name.lower().startswith(("loopback", "management"))
                 and iface["role"] != "management"
             ),
-            "vrf": vrf_name if vrf_name and iface["role"] == "cust" else None,
+            "vrf": interface_vrf(device, iface, cust_vrf_by_neighbor_dev),
             "address": iface["ips"][0],
             # EOS: passive-interface alone does not advertise the loopback;
             # it still needs an area assignment to enter OSPF at all
@@ -785,7 +827,7 @@ def eos_view(device, contracts, policies):
     for c in my_edge:
         bgp_vrfs.append({
             "name": c["vrf"]["name"],
-            "rd": c["vrf"]["rd"],
+            "rd": vrf_rd(device, c["vrf"]["name"]),
             "import_rt": c["vrf"]["import_rt"].replace("target:", ""),
             "export_rt": c["vrf"]["export_rt"].replace("target:", ""),
             "neighbors": [

@@ -1,0 +1,58 @@
+# Read contract for checks/vrf_instance_integrity.py (global check).
+#
+# Every VRF instance in the branch, with its members' owning device and
+# l2_mode: RD uniqueness is network-wide, and an interface's membership can
+# only be judged across all instances at once.
+query vrf_instance_integrity {
+  IpamVRFInstance {
+    edges {
+      node {
+        id
+        route_distinguisher {
+          value
+        }
+        rd_mode {
+          value
+        }
+        vrf {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        device {
+          node {
+            name {
+              value
+            }
+          }
+        }
+        interfaces {
+          edges {
+            node {
+              id
+              ... on DcimInterface {
+                name {
+                  value
+                }
+                device {
+                  node {
+                    name {
+                      value
+                    }
+                  }
+                }
+              }
+              ... on InterfaceLayer2 {
+                l2_mode {
+                  value
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

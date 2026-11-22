@@ -15,11 +15,14 @@
 #                             artifacts)
 #   intent_tenants          - IntentTenant nodes (dashboards)
 #   edge_bgp                - the edge pair whose bgp_local_pref the generator swaps
+#   vrfs                    - IpamVRF nodes whose per-PE route distinguishers the
+#                             vrf_rd generator writes
 
 # SD-WAN disabled 2026-11-18 (schema removed from Infrahub to cut load); uncomment to re-enable.
 schemas:
   - schemas/loadbalancer.yml
   - schemas/certificate.yml
+  - schemas/ipam_vrf.yml
 #  - schemas/dcim_bgp.yml
 #   - schemas/sdwan.yml
 
@@ -51,10 +54,18 @@ queries:
     file_path: "queries/signal_predicate.gql"
   - name: f5_config
     file_path: "queries/f5_config.gql"
+  - name: vrf_rd
+    file_path: "queries/vrf_rd.gql"
+  - name: vrf_instance_integrity
+    file_path: "queries/vrf_instance_integrity.gql"
 #   - name: get_sdwan_nac_data
 #     file_path: "queries/sdwan.gql"
 
 check_definitions:
+  # global: RD unique network-wide, members routed + single-VRF (M-11)
+  - name: vrf_instance_integrity_check
+    class_name: VrfInstanceIntegrityCheck
+    file_path: "checks/vrf_instance_integrity.py"
   - name: signal_predicate_check
     class_name: SignalPredicateCheck
     file_path: "checks/signal_predicate.py"
@@ -82,6 +93,14 @@ generator_definitions:
     targets: edge_bgp
     parameters:
       device: name__value
+  # per-PE RD = <PE Loopback0>:<vrf_id> on every IpamVRFInstance (rd_mode auto)
+  - name: vrf_rd
+    class_name: VrfRdGenerator
+    file_path: "generators/vrf_rd.py"
+    query: vrf_rd
+    targets: vrfs
+    parameters:
+      vrf: name__value
 
 python_transforms:
   - name: device_config
