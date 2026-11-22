@@ -258,7 +258,7 @@ Rule: the contract never names a mechanism; the renderer derives it. Derived fac
 
 | Derived value | Rule |
 |---|---|
-| RD of VRF v<N> on a PE | `<that PE's Loopback0>:<N>` — **per device** (see G-2/Q3); stored on `IpamVRFInstance` by the `vrf_rd` generator |
+| RD of VRF v<N> on a PE | `<that PE's Loopback0>:<N>` — **per device** (see G-2/Q3); stored on `IpamVRFRouteDistinguisher` by the `vrf_rd` generator |
 | iBGP neighbors of a PE | the RRs at the PE's site |
 | RR mesh | all RRs, all sites |
 | OSPF interfaces | every core link modelled between two core devices; others passive |
@@ -382,7 +382,7 @@ per expected series.
 
 | ID | Gap | Proposal |
 |---|---|---|
-| M-1 | `IpamVRF.vrf_rd` is one value per VRF; RDs are per PE | **Done (2026-11-22):** `IpamVRFInstance` (VRF × PE, `schemas/ipam_vrf.yml`) stores the RD, written by the `vrf_rd` generator as `<Loopback0>:<IpamVRF.vrf_id>` (`rd_mode: manual` to pin one); `vrf_rd`/`route_distinguisher` on IpamVRF deprecated. Migration: `scripts/migrate_vrf_instances.py` |
+| M-1 | `IpamVRF.vrf_rd` is one value per VRF; RDs are per PE | **Done (2026-11-22):** `IpamVRFRouteDistinguisher` (VRF × PE, `schemas/ipam_vrf.yml`) stores the RD, written by the `vrf_rd` generator as `<Loopback0>:<IpamVRF.vrf_id>` (`rd_mode: manual` to pin one); `vrf_rd`/`route_distinguisher` on IpamVRF deprecated. Migration: `scripts/migrate_vrf_instances.py` |
 | M-10 | **Open:** no intent states "this VRF must be dual-homed" | contract `redundancy: dual_homed` / `min_instances`; invariant: ≥2 instances serve the same CE, each with a distinct RD (+ `maximum-paths ibgp` rendered) |
 | M-11 | RD uniqueness can't be a schema constraint (`unique: true` rejects a second empty RD); the members peer can't exclude switchports | **Done (2026-11-22):** global check `vrf_instance_integrity_check` (`checks/vrf_instance_integrity.py`): RD unique network-wide, manual ⇒ RD set, members routed (no `l2_mode`), on the instance's device, in one VRF only. Members are `InterfaceLayer3`; a VLAN reaches a VRF via its SVI |
 | M-12 | **Open:** instances are data; contracts' `pe_devices` imply them too (two sources of "which PE carries the VRF") | generator creates instances for contract PEs, or a check flags a contract PE without an instance |

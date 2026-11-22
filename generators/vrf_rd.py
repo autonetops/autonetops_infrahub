@@ -3,7 +3,7 @@
 One run per member of the ``vrfs`` group (one VRF). Two things, in order:
 
 1. **Attachments.** IPAM is the source: an interface holding an IP address
-   in the VRF is an attachment of its device's ``IpamVRFInstance``.
+   in the VRF is an attachment of its device's ``IpamVRFRouteDistinguisher``.
    * missing binding -> added;
    * device with such an interface but no instance -> instance created
      (``rd_mode: auto``) - the PE carries the VRF because IPAM says so;
@@ -182,7 +182,7 @@ class VrfRdGenerator(InfrahubGenerator):
             ifaces = ", ".join(sorted(rec["add"].values())) or "-"
             if rec["id"] is None:
                 obj = await self.client.create(
-                    kind="IpamVRFInstance", branch=self.branch_name,
+                    kind="IpamVRFRouteDistinguisher", branch=self.branch_name,
                     vrf=vrf["id"], device=rec["device"]["id"], rd_mode="auto",
                     route_distinguisher=rec["rd"], interfaces=sorted(rec["add"]),
                 )
@@ -201,7 +201,7 @@ class VrfRdGenerator(InfrahubGenerator):
                 self.logger.info(f"{label}: rd {rec['rd']} (unchanged)")
                 continue
             obj = await self.client.get(
-                kind="IpamVRFInstance", id=rec["id"], branch=self.branch_name, include=["interfaces"]
+                kind="IpamVRFRouteDistinguisher", id=rec["id"], branch=self.branch_name, include=["interfaces"]
             )
             obj.route_distinguisher.value = rec["rd"]
             for iid in rec["add"]:

@@ -4,7 +4,7 @@
 # l2_mode: RD uniqueness is network-wide, and an interface's membership can
 # only be judged across all instances at once.
 query vrf_instance_integrity {
-  IpamVRFInstance {
+  IpamVRFRouteDistinguisher {
     edges {
       node {
         id

@@ -182,7 +182,7 @@ def test_generate_creates_untracked_instance_with_rd_and_interfaces():
     gen.client, gen.branch = _FakeClient(), "main"
     asyncio.run(gen.generate(_vrf(100, ips=[_ip("172.16.0.2/29", "RR-1", "10.0.0.9/32", "r-vl100", "Vlan100")])))
     assert gen.client.created == [{
-        "kind": "IpamVRFInstance", "vrf": "vrf-s100", "device": "dev-RR-1", "rd_mode": "auto",
+        "kind": "IpamVRFRouteDistinguisher", "vrf": "vrf-s100", "device": "dev-RR-1", "rd_mode": "auto",
         "route_distinguisher": "10.0.0.9:100", "interfaces": ["r-vl100"],
     }]
 
@@ -216,7 +216,7 @@ def test_rd_is_per_device():
 
 
 def test_missing_instance_fails_the_artifact():
-    with pytest.raises(ValueError, match="no IpamVRFInstance"):
+    with pytest.raises(ValueError, match="no IpamVRFRouteDistinguisher"):
         vrf_rd(_device(), "CUSTC-PROD")
 
 
@@ -237,7 +237,7 @@ def test_contract_fallback_still_applies():
 # --- check --------------------------------------------------------------
 
 def _ci(vrf, dev, rd=None, mode="auto", members=()):
-    """IpamVRFInstance as the check's query returns it; members =
+    """IpamVRFRouteDistinguisher as the check's query returns it; members =
     (iface id, owning device, name, l2_mode)."""
     return {
         "id": f"{vrf}@{dev}",

@@ -1,6 +1,6 @@
 """VRF instance integrity - the merge gate behind the per-PE RD model.
 
-``IpamVRFInstance.route_distinguisher`` cannot carry ``unique: true``
+``IpamVRFRouteDistinguisher.route_distinguisher`` cannot carry ``unique: true``
 (Infrahub counts empty values as equal, so two not-yet-generated instances
 would collide), and the instance's ``interfaces`` peer cannot exclude
 switchports (physical/virtual interfaces inherit both InterfaceLayer2 and
@@ -93,11 +93,11 @@ class VrfInstanceIntegrityCheck(InfrahubCheck):
     query = "vrf_instance_integrity"
 
     def validate(self, data):
-        instances = _edges(data.get("IpamVRFInstance"))
+        instances = _edges(data.get("IpamVRFRouteDistinguisher"))
         violations = find_violations(instances)
         for message, object_id in violations:
             if object_id:
-                self.log_error(message=message, object_id=object_id, object_type="IpamVRFInstance")
+                self.log_error(message=message, object_id=object_id, object_type="IpamVRFRouteDistinguisher")
             else:
                 self.log_error(message=message)
         if not violations:

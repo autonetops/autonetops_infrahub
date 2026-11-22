@@ -5,7 +5,7 @@
 # not to the VRF.
 #
 #   IpamVRF            the service: name, vrf_id, import/export route targets
-#     └── IpamVRFInstance   one per PE carrying the VRF: route_distinguisher, interfaces
+#     └── IpamVRFRouteDistinguisher   one per PE carrying the VRF: route_distinguisher, interfaces
 #           ├── device      DcimGenericDevice (the PE)
 #           └── interfaces  InterfaceLayer3 - the routed attachment points only
 #                           (SVI, sub-interface, routed port, tunnel). A switchport
@@ -22,13 +22,16 @@
 #
 # IpamVRF.vrf_rd / route_distinguisher (one RD per VRF) were removed on
 # 2026-11-22 (schemas/migrations/retire_vrf_deprecated_rd.yml); the RD lives
-# on IpamVRFInstance.route_distinguisher only.
+# on IpamVRFRouteDistinguisher.route_distinguisher only.
 version: "1.0"
 
 nodes:
-  - name: VRFInstance
+  # renamed from VRFInstance (2026-11-22); `id` keeps the existing objects -
+  # Infrahub migrates the node in place instead of creating a new kind
+  - id: 18ea6026-79b1-bb0d-3c51-10650211dcbb
+    name: VRFRouteDistinguisher
     namespace: Ipam
-    label: VRF Instance
+    label: VRF Route Distinguisher
     description: A VRF as provisioned on one PE. Holds that PE's route distinguisher.
     icon: mdi:router-network
     include_in_menu: false   # listed under IPAM by menus/menu-ipam.yml
@@ -111,7 +114,7 @@ extensions:
           order_weight: 1010
       relationships:
         - name: instances
-          peer: IpamVRFInstance
+          peer: IpamVRFRouteDistinguisher
           label: Route Distinguishers
           kind: Component
           cardinality: many
@@ -121,8 +124,8 @@ extensions:
     - kind: DcimGenericDevice
       relationships:
         - name: vrf_instances
-          peer: IpamVRFInstance
-          label: VRF Instances
+          peer: IpamVRFRouteDistinguisher
+          label: Route Distinguishers
           kind: Generic
           cardinality: many
           optional: true
@@ -130,8 +133,8 @@ extensions:
     - kind: InterfaceLayer3
       relationships:
         - name: vrf_instances
-          peer: IpamVRFInstance
-          label: VRF Instances
+          peer: IpamVRFRouteDistinguisher
+          label: Route Distinguishers
           kind: Generic
           cardinality: many
           optional: true

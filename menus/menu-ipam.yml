@@ -6,10 +6,10 @@
 #   IPAM
 #     ├── ...
 #     ├── VRFs           (IpamVRF, built-in entry)
-#     └── VRF Instances  (IpamVRFInstance) - one per VRF x PE, holds the RD
+#     └── Route Distinguishers  (IpamVRFRouteDistinguisher) - one per VRF x PE
 #
 # The parent is the protected Builtin/IPAM item, referenced by its
-# namespace+name; it is not redefined here. IpamVRFInstance carries
+# namespace+name; it is not redefined here. IpamVRFRouteDistinguisher carries
 # include_in_menu: false so the auto-menu adds no second copy.
 ---
 apiVersion: infrahub.app/v1
@@ -17,9 +17,9 @@ kind: Menu
 spec:
   data:
     - namespace: Ipam
-      name: VRFInstance
-      label: "VRF Instances"
-      kind: IpamVRFInstance
+      name: VRFRouteDistinguisher
+      label: "Route Distinguishers"
+      kind: IpamVRFRouteDistinguisher
       icon: "mdi:router-network"
       order_weight: 2001
       parent: ["Builtin", "IPAM"]

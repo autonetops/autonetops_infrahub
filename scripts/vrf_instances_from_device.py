@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Sync one PE's IpamVRFInstance records from its running config (IOS / IOS-XE).
+"""Sync one PE's IpamVRFRouteDistinguisher records from its running config (IOS / IOS-XE).
 
 Brownfield onboarding for the per-PE RD model: reads which VRFs the router
 runs and which routed interfaces sit in them, then upserts one
-IpamVRFInstance per VRF on that device and binds the interfaces. The RD is
+IpamVRFRouteDistinguisher per VRF on that device and binds the interfaces. The RD is
 NOT copied from the box - the vrf_rd generator owns it - but the device's RD
 is printed next to the one the generator will write, so drift shows up.
 
@@ -148,7 +148,7 @@ def main():
         if not args.apply or (inst and have == want):
             continue
         if inst:
-            obj = client.get(kind="IpamVRFInstance", id=inst["id"], branch=args.branch, include=["interfaces"])
+            obj = client.get(kind="IpamVRFRouteDistinguisher", id=inst["id"], branch=args.branch, include=["interfaces"])
             obj.interfaces.fetch()
             for p in list(obj.interfaces.peers):
                 if p.id not in want:
@@ -158,7 +158,7 @@ def main():
             obj.save()
         else:
             client.create(
-                kind="IpamVRFInstance", branch=args.branch,
+                kind="IpamVRFRouteDistinguisher", branch=args.branch,
                 vrf=vrf["id"], device=dev["id"], rd_mode="auto", interfaces=sorted(want),
             ).save()
 

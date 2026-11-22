@@ -151,7 +151,7 @@ def parse_device(data):
 
 
 def parse_vrf_instances(node):
-    """This PE's IpamVRFInstance per VRF name: its own RD plus its routed
+    """This PE's IpamVRFRouteDistinguisher per VRF name: its own RD plus its routed
     attachment interfaces (each gets ``vrf forwarding``). Members are L3
     only - checks/vrf_instance_integrity.py rejects switchports."""
     instances = {}
@@ -173,7 +173,7 @@ def vrf_rd(device, vrf_name):
     inst = device["vrf_instances"].get(vrf_name)
     if not inst or not inst["rd"]:
         raise ValueError(
-            f"{device['name']}: VRF {vrf_name} has no IpamVRFInstance with a "
+            f"{device['name']}: VRF {vrf_name} has no IpamVRFRouteDistinguisher with a "
             f"route_distinguisher on this device - create the instance and "
             f"run the vrf_rd generator"
         )
@@ -183,7 +183,7 @@ def vrf_rd(device, vrf_name):
 def interface_vrf(device, iface, cust_vrf_by_neighbor_dev):
     """The VRF an L3 interface forwards in.
 
-    An explicit IpamVRFInstance binding wins. Without one, fall back to the
+    An explicit IpamVRFRouteDistinguisher binding wins. Without one, fall back to the
     contract-derived rule: a ``cust`` interface facing a CE of a tenant
     contract sits in that tenant's VRF."""
     for vrf_name, inst in device["vrf_instances"].items():
@@ -228,7 +228,7 @@ def parse_contracts(data):
                 v = vrfs[0]
                 import_rt = _node(v.get("import_rt"))
                 export_rt = _node(v.get("export_rt"))
-                # no RD here: it is per PE (IpamVRFInstance), see vrf_rd()
+                # no RD here: it is per PE (IpamVRFRouteDistinguisher), see vrf_rd()
                 vrf = {
                     "name": _v(v["name"]),
                     "import_rt": _v(import_rt["name"]) if import_rt else None,

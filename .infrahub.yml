@@ -98,7 +98,7 @@ generator_definitions:
     targets: edge_bgp
     parameters:
       device: name__value
-  # per-PE RD = <PE Loopback0>:<vrf_id> on every IpamVRFInstance (rd_mode auto)
+  # per-PE RD = <PE Loopback0>:<vrf_id> on every IpamVRFRouteDistinguisher (rd_mode auto)
   - name: vrf_rd
     class_name: VrfRdGenerator
     file_path: "generators/vrf_rd.py"
