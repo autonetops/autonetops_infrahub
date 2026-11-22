@@ -26,6 +26,10 @@ schemas:
 #  - schemas/dcim_bgp.yml
 #   - schemas/sdwan.yml
 
+# loaded before generator_definitions: holds the groups they target
+objects:
+  - objects/groups.yml
+
 menus:
   - menus/menu-intent.yml
   - menus/menu-loadbalancer.yml

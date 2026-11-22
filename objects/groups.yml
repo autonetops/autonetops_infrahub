@@ -1,0 +1,15 @@
+---
+# Generator/check target groups that must exist before .infrahub.yml's
+# generator_definitions are imported: Infrahub resolves `targets` at import
+# time and aborts the whole import ("Unable to find the node vrfs / CoreGroup")
+# when the group is missing. Object files load before definitions.
+#
+# Membership is data (scripts/migrate_vrf_instances.py adds every VRF with a
+# vrf_id); only the group itself lives here.
+apiVersion: infrahub.app/v1
+kind: Object
+spec:
+  kind: CoreStandardGroup
+  data:
+    - name: vrfs
+      description: IpamVRF targets of the vrf_rd generator
