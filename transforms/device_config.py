@@ -143,7 +143,8 @@ def parse_device(data):
         "primary_address": _v(primary["address"]) if primary else None,
         "platform": _v(platform.get("name")),
         "capabilities": {
-            _v(c["name"]) for c in _edges(platform.get("capabilities"))
+            _v(c["name"])
+            for c in _edges((_node(node.get("device_type")) or {}).get("capabilities"))
         },
         "asn": _v(asn["asn"]) if asn else None,
         "interfaces": interfaces,
@@ -1165,7 +1166,7 @@ def _srl_route_reflector(device, contracts, policies):
     to Cisco IOL, kept so a reflector can return to a licensed 7250 chassis
     as a one-field SoT change.
 
-    LDP is emitted only where the platform claims the ``mpls`` capability.
+    LDP is emitted only where the device type claims the ``mpls`` capability.
     No contract asks for LDP - it is a mechanism this renderer picks to
     satisfy an MPLS forwarding plane, so a platform that cannot run it
     simply gets a config without it.

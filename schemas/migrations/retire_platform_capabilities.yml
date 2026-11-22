@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# Remove DcimPlatform.capabilities (2026-11-22). Capabilities now live on
+# DcimDeviceType.capabilities (schemas/intent.yml); the data was copied by
+# scripts/migrate_capabilities_to_device_type.py. Schema loads merge with the
+# live schema, so the removal has to be explicit.
+#
+# Load ONLY after the code reading device_type.capabilities is pushed and
+# synced to the AUTONETOPS repository - the server-side checks/transforms run
+# from git, and the old ones query platform.capabilities.
+#
+#   infrahubctl schema load schemas/migrations/retire_platform_capabilities.yml
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+extensions:
+  nodes:
+    - kind: DcimPlatform
+      relationships:
+        - name: capabilities
+          peer: IntentCapability
+          identifier: platform__capability
+          cardinality: many
+          state: absent

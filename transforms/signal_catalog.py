@@ -142,7 +142,7 @@ def spec(signal_id):
 
 def collector_for(capabilities):
     """Capability-driven collector selection (ADR-0017 D6 rule 3): the
-    collector is derived from what the platform claims, never chosen."""
+    collector is derived from what the device type claims, never chosen."""
     if "gnmi" in capabilities:
         return "gnmi"
     if "snmp" in capabilities:

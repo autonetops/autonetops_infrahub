@@ -92,8 +92,8 @@ Browse the schema in the UI. The things to notice:
   (critical), `custc-prefix-authorization` (major),
   `custc-reachability-preserved` (warning) — each is a typed kind
   referencing the intents it guarantees, and each maps onto a check.
-- **`DcimPlatform.capabilities`** is where "this Cisco has no gNMI" lives as
-  data. Everything downstream branches on it.
+- **`DcimDeviceType.capabilities`** is where "this Cisco has no gNMI" lives as
+  data — per model, not per OS family (IOSv routes MPLS, IOSvL2 does not). Everything downstream branches on it.
 
 ## Phase 2 — Seed the customer-c scenario
 
@@ -136,8 +136,8 @@ the tenant doesn't own that space.
 `pe_devices`. `tenant_redundancy` blocks the merge: 1 PE < required 2.
 
 **Exercise 3d (unobservable = unmergeable):** strip *every* telemetry
-capability — `gnmi`, `ssh_cli` **and** `snmp` — from the `arista_eos`
-platform. `observability_capability` fails: the required signals can no
+capability — `gnmi`, `ssh_cli` **and** `snmp` — from the `cEOS`
+device type. `observability_capability` fails: the required signals can no
 longer be collected from either PE. Leave `snmp` on and the check still
 passes; the invariant is "some telemetry capability", not "gNMI".
 
@@ -190,7 +190,7 @@ Open the `contract-expectations` artifact for `custc-ce-to-pe`. It encodes:
 
 - sessions that must be `established`, each carrying the *collector* that will
   observe it (`observedVia: gnmi` for both cEOS PEs) — picked from the
-  platform's capabilities, not written by hand. Re-platform a PE onto a box
+  device type's capabilities, not written by hand. Move a PE onto a box
   without gNMI and this field flips to `cli_scrape` on its own.
 - route counts as **ranges** (`<= 200`), never exact values
 - forbidden behavior (`export_prefixes_from_tenant(customer-c)` toward
@@ -217,7 +217,7 @@ Inspect the `telegraf-inputs` artifacts:
 - Nothing compiles to `[[inputs.exec]]` today, because no PE lacks gNMI. To see
   the CLI-scrape arm, scope a signal at `ibgp-core-rr`: the Cisco IOL reflector
   claims `ssh_cli` and no `gnmi`, so it compiles `cli_bgp_telemetry.py` over
-  SSH instead. **The intent would not change; the platform's capabilities
+  SSH instead. **The intent would not change; the device type's capabilities
   select the collector.**
 
 And `prometheus-rules` per contract: session-down (sev2, `for: 60s` from the
@@ -326,9 +326,10 @@ of this layer, exercised against this very lab:
   `ipv4-unicast`, can — so that is the role SR Linux plays.
 
 - **The `mpls` capability still gates LDP in the renderer**, not a chassis
-  check. `nokia_srlinux` no longer claims `mpls`, so SR Linux's dormant
-  reflector body would emit no LDP block; add `mpls` back (on a licensed 7250)
-  and it returns. Same switchboard as `gnmi` → collector selection.
+  check. The `7220 IXR-D3L` device type does not claim `mpls`, so SR Linux's dormant
+  reflector body would emit no LDP block; model a 7250 device type that claims
+  `mpls` and it returns — a per-model fact, which is why capabilities
+  live on the device type. Same switchboard as `gnmi` → collector selection.
 - The CLI-scrape collector now has a natural target: **`core-rr-01` (Cisco IOL)
   claims `ssh_cli` and no `gnmi`**, so a signal scoped at `ibgp-core-rr`
   compiles `cli_bgp_telemetry.py` over SSH. The SR Linux CEs are gNMI-native on

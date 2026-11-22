@@ -13,7 +13,7 @@ Notice what this artifact encodes:
   - forbidden behavior (no export to denied zones)
   - telemetry freshness - if you can't observe it, you can't claim
     compliance - including HOW each device is observed (gnmi vs
-    cli_scrape), derived from platform capabilities.
+    cli_scrape), derived from device-type capabilities.
 
 This artifact is the compiler's single intermediate representation:
 every observability output is a projection of ``build_expectations()``,
@@ -71,9 +71,9 @@ def _derive_sessions(contract_node, peers):
     ce_names = {_v(d["name"]) for d in _edges(contract_node.get("ce_devices"))}
     sessions = []
     for pe in _edges(contract_node.get("pe_devices")):
-        platform = _node(pe.get("platform")) or {}
+        device_type = _node(pe.get("device_type")) or {}
         capabilities = {
-            _v(c["name"]) for c in _edges(platform.get("capabilities"))
+            _v(c["name"]) for c in _edges(device_type.get("capabilities"))
         }
         for iface in _edges(pe.get("interfaces")):
             remote = peers.get((_v(pe["name"]), _v(iface["name"])))

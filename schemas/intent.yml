@@ -21,7 +21,7 @@
 #                           one policy or invariant. Hard expiry.
 #
 # Supporting kinds: IntentTenant (WHO), IntentZone (WHERE), IntentCapability
-# (WITH WHAT a platform participates). Contracts reference DCIM/IPAM objects
+# (WITH WHAT a device type participates). Contracts reference DCIM/IPAM objects
 # so the compilers can anchor rendered artifacts to real devices/prefixes.
 #
 # This file mirrors autonetops_ibn/infrahub/schemas/intent_model.yml (the
@@ -549,7 +549,7 @@ nodes:
     namespace: Intent
     generate_profile: false
     label: "Invariant: capability present"
-    description: "Targeted platforms must expose the capability the contract needs."
+    description: "Targeted device types must expose the capability the contract needs."
     icon: "mdi:shield-lock"
     include_in_menu: false
     inherit_from:
@@ -1037,7 +1037,7 @@ nodes:
 
   - name: Capability
     namespace: Intent
-    description: "Something a platform can do; contracts and collectors branch on them."
+    description: "Something a device type can do; contracts and collectors branch on them."
     label: "Capability"
     icon: "mdi:puzzle-check"
     include_in_menu: false
@@ -1066,15 +1066,19 @@ nodes:
           - name: management
           - name: forwarding
 
-# Platforms declare what they can do; capability_present invariants verify
-# that what a contract needs to be observed is actually present on the boxes.
+# Device types declare what they can do; capability_present invariants
+# verify that what a contract needs to be observed is actually present on the
+# boxes. Capabilities hang off the device type, not the platform: one OS
+# family spans models that differ in what they can do (IOSv routes MPLS,
+# IOSvL2 does not; a 7220 IXR-D3L has no MPLS where a 7250 does). The
+# platform keeps what is OS-wide - drivers, transports, telemetry paths.
 extensions:
   nodes:
-    - kind: DcimPlatform
+    - kind: DcimDeviceType
       relationships:
         - name: capabilities
           peer: IntentCapability
-          identifier: platform__capability
+          identifier: devicetype__capability
           optional: true
           cardinality: many
           kind: Attribute

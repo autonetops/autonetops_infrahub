@@ -392,7 +392,7 @@ per expected series.
 | M-5 | `NetworkVRRPGroup` lacks protocol/preempt/timers/track (loaded as-is today) | needed to render HSRP and check `pe-vpn-manual-failover` from the SoT (extend later) |
 | M-6 | No static-route-with-tracking kind | needed for C3.1 rendering (RR s100 statics, DIST statics) |
 | M-7 | Signal catalog lacks the 9 signals in §7 | add catalog entries + parsers; reuse neterse compressors |
-| M-8 | No capabilities on bootcamp device types | assign per §3 so `observedVia` derives |
+| M-8 | IOSv / IOSvL2 / IOL L2 carry no capabilities (C8000V copied from `cisco_iosxe` 2026-11-22; the relationship moved to `DcimDeviceType`) | assign per §3 so `observedVia` derives |
 | M-9 | Existing intents/zones/tenants are the clab customer-c lab | new tenants/zones in §3; keep the two worlds separate by `IntentZone` |
 
 ---

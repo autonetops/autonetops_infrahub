@@ -2,11 +2,11 @@
 
 This is where the capability taxonomy earns its keep. The same
 ObservabilitySignal intent compiles to a *different* collector per
-device, selected by what the device's platform claims:
+device, selected by what the device's device type claims:
 
     gnmi     -> telegraf [[inputs.gnmi]] subscription (paths per platform)
     ssh_cli  -> telegraf [[inputs.exec]] running the CLI-scrape script
-                (the Cisco IOS-XE path - no gNMI on that platform)
+                (the Cisco IOL path - no gNMI on that device type)
     (always) -> telegraf [[inputs.ping]] for the fleet-wide
                 device_reachability signal via the OOB address
 
@@ -15,7 +15,7 @@ today every scoped signal compiles to gNMI. The CLI-scrape arm is what the
 gNMI-less Cisco CEs would get the moment a signal is pointed at
 ``ce_devices`` - one query field, no intent change.
 
-Nothing in the intent names a collector. Change a platform's
+Nothing in the intent names a collector. Change a device type's
 capabilities in the SoT and the compiled observability changes with it -
 no schema change, no template fork.
 
@@ -102,8 +102,10 @@ class TelemetryCollectorTransform(InfrahubTransform):
         name = _v(device["name"])
         platform = _node(device.get("platform")) or {}
         platform_name = _v(platform.get("name")) or "unknown"
+        device_type = _node(device.get("device_type")) or {}
+        device_type_name = _v(device_type.get("name")) or "unknown"
         capabilities = {
-            _v(c["name"]) for c in _edges(platform.get("capabilities"))
+            _v(c["name"]) for c in _edges(device_type.get("capabilities"))
         }
         primary = _node(device.get("primary_address"))
         mgmt_ip = _v(primary["address"]).split("/")[0] if primary else None
@@ -125,7 +127,7 @@ class TelemetryCollectorTransform(InfrahubTransform):
             else:
                 blocks.append(
                     f"# WARNING: {len(scoped)} contract-scoped signal(s) required but "
-                    f"platform '{platform_name}' claims no telemetry capability.\n"
+                    f"device type '{device_type_name}' claims no telemetry capability.\n"
                     f"# The observability_capability check should have blocked this merge."
                 )
 

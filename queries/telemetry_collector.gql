@@ -20,6 +20,13 @@ query telemetry_collector($device: String!) {
             name {
               value
             }
+          }
+        }
+        device_type {
+          node {
+            name {
+              value
+            }
             capabilities {
               edges {
                 node {

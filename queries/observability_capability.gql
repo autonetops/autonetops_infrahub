@@ -20,19 +20,42 @@ query observability_capability {
                     name {
                       value
                     }
-                    platform {
-                      node {
-                        name {
-                          value
-                        }
-                        capabilities {
-                          edges {
-                            node {
-                              name {
-                                value
+                    ... on DcimPhysicalDevice {
+                      device_type {
+                        node {
+                          name {
+                            value
+                          }
+                          capabilities {
+                            edges {
+                              node {
+                                name {
+                                  value
+                                }
+                                category {
+                                  value
+                                }
                               }
-                              category {
-                                value
+                            }
+                          }
+                        }
+                      }
+                    }
+                    ... on DcimVirtualDevice {
+                      device_type {
+                        node {
+                          name {
+                            value
+                          }
+                          capabilities {
+                            edges {
+                              node {
+                                name {
+                                  value
+                                }
+                                category {
+                                  value
+                                }
                               }
                             }
                           }

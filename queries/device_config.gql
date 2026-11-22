@@ -17,6 +17,13 @@ query device_config($device: String!) {
             netmiko_device_type {
               value
             }
+          }
+        }
+        device_type {
+          node {
+            name {
+              value
+            }
             capabilities {
               edges {
                 node {

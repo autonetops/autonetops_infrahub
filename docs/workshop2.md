@@ -98,7 +98,7 @@ object, and keeping them separate is most of the discipline:
 | **HOW** is it achieved? | Contract → objectives | `IntentContract` subtypes |
 | **WHAT ARE THE RULES** of the game? | Policy (network + operational) | `IntentPolicy` rule instruments; `OpsChangeWindow` |
 | **WHAT MUST NEVER BE FALSE?** | Invariant | `IntentInvariant` |
-| **WITH WHAT** can each box participate? | Capability | `IntentCapability` (on `DcimPlatform`) |
+| **WITH WHAT** can each box participate? | Capability | `IntentCapability` (on `DcimDeviceType`) |
 | **WHEN** may change reach production? | Change window (an operational policy) | `OpsChangeWindow` |
 | **PROOF** that it holds? | Expectation → evidence | `contract-expectations` artifact → telemetry |
 | **SANCTIONED EXCEPTIONS?** | Waiver (time-boxed, expiring) | `IntentWaiver` |
@@ -390,7 +390,7 @@ Expectations have a discipline of their own:
   (`export_prefixes_from_tenant(customer-c)` toward internet-peers must
   be *absent*) — you cannot prove a negative you never wrote down.
 - **The collector is derived, not chosen** — `observedVia: gnmi` because
-  the platform claims the `gnmi` capability; re-platform onto a box
+  the device type claims the `gnmi` capability; move onto a box
   without it and the field flips to `cli_scrape` with no intent edit.
 - **Freshness is part of the proof** (2× collection interval) — stale
   evidence is no evidence, and a dead collector must read as "unknown",
@@ -432,7 +432,7 @@ the platform model unchanged):
   to: `core`, `corp`, `transit`, `internet_peering`, `partner`,
   `management`. Zones let a contract say "never toward internet-peers"
   without enumerating devices.
-- **Capability** (*`IntentCapability`*, attached to `DcimPlatform`) —
+- **Capability** (*`IntentCapability`*, attached to `DcimDeviceType`) —
   WITH WHAT: `gnmi`, `ssh_cli`, `snmp`, `mpls`, … Capabilities are the
   switchboard between intent and mechanism: the observability compiler
   picks gNMI vs CLI-scrape off them, the renderer gates its LDP block on
@@ -563,7 +563,7 @@ contract anchors:  * DcimGenericDevice  (pe_devices / ce_devices)
                    * IntentTenant       (export_tenants)
                    watched by * IntentObservabilitySignal (condition, frequency)
 
-DcimPlatform ── * IntentCapability      selects collectors, gates renderer
+DcimDeviceType ── * IntentCapability    selects collectors, gates renderer
                                         arms, checked by capability_present
 OpsChangeWindow ── * DcimGenericDevice  WHEN — an operational policy;
                                         maintenance | freeze; max_blast_radius;
@@ -1169,7 +1169,7 @@ of a model nobody trusts yet.
 ## Stage 0 — A source of truth worth trusting
 
 **The work.** Get the physical and logical inventory into the SoT:
-devices, platforms **with capabilities**, interfaces, cabling (including
+devices, device types **with capabilities**, interfaces, cabling (including
 the OOB plane), IP space, VRFs, locations. Model only what the first
 domain you pick will need — a complete model of everything is a project
 that never ships.
@@ -1179,7 +1179,7 @@ where reality is *documented afterwards* and becomes where it is
 *declared first*. A device exists because it was created in the SoT and
 then racked, not the other way around.
 
-**Exit criteria.** New devices enter through the SoT; platform
+**Exit criteria.** New devices enter through the SoT; device-type
 capabilities are data (`gnmi`, `ssh_cli`, `snmp`, `mpls`, …); cabling for
 the target domain is modeled. You can answer "what is attached to what,
 and what can each box do?" with a query.

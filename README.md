@@ -26,7 +26,7 @@ IntentWaiver           time-boxed permission to violate one policy/invariant
 
 Contracts feed the compilers; invariant projections feed the merge gates.
 Supporting kinds: `IntentTenant` (who), `IntentZone` (where),
-`IntentCapability` (what a platform can do). `domain` is an attribute
+`IntentCapability` (what a device type can do). `domain` is an attribute
 (connectivity, routing, security, resilience, observability, …), never a
 node kind.
 
