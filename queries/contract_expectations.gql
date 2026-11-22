@@ -141,38 +141,6 @@ query contract_expectations($contract: String!) {
                         }
                       }
                     }
-                    ... on DcimEndpoint {
-                      connector {
-                        node {
-                          connected_endpoints {
-                            edges {
-                              node {
-                                ... on DcimInterface {
-                                  device {
-                                    node {
-                                      name {
-                                        value
-                                      }
-                                    }
-                                  }
-                                }
-                                ... on InterfaceLayer3 {
-                                  ip_addresses {
-                                    edges {
-                                      node {
-                                        address {
-                                          value
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
                   }
                 }
               }
@@ -219,6 +187,31 @@ query contract_expectations($contract: String!) {
           node {
             name {
               value
+            }
+          }
+        }
+      }
+    }
+  }
+  IpamIPAddress {
+    edges {
+      node {
+        address {
+          value
+        }
+        interface {
+          node {
+            ... on DcimInterface {
+              name {
+                value
+              }
+              device {
+                node {
+                  name {
+                    value
+                  }
+                }
+              }
             }
           }
         }

@@ -104,8 +104,8 @@ topology:
     - endpoints: ["ce-custc-02:ethernet-1/1", "pe-emea-02:eth2"]
     # internet peering plane
     - endpoints: ["peer-inet-01:eth1", "pe-emea-02:eth3"]
-    # OOB management plane - modeled in the SoT, verified by the
-    # oob_reachability check, exercised by the device_reachability signal
+    # OOB management plane - modeled in the SoT, exercised by the
+    # device_reachability signal
     #- endpoints: ["pe-emea-01:eth3", "oob-sw-01:eth1"]
     #- endpoints: ["pe-emea-02:eth4", "oob-sw-01:eth2"]
     #- endpoints: ["core-rr-01:Ethernet0/3", "oob-sw-01:eth3"]

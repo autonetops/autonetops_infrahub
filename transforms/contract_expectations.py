@@ -40,6 +40,7 @@ from infrahub_sdk.transforms import InfrahubTransform
 # spec_from_file_location loader alike
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import signal_catalog  # noqa: E402
+import topology  # noqa: E402
 
 MIN_UPTIME_SECONDS = 300
 
@@ -63,14 +64,10 @@ def _edges(rel):
     return [e["node"] for e in rel["edges"]] if rel else []
 
 
-def _iface_ips(iface):
-    ips = iface.get("ip_addresses")
-    return [_v(ip["address"]) for ip in _edges(ips)] if ips else []
-
-
-def _derive_sessions(contract_node):
+def _derive_sessions(contract_node, peers):
     """Same rule as the config renderer: sessions are a consequence of the
-    contract plus the modeled cabling, never modeled by hand."""
+    contract plus the modeled point-to-point links (transforms/topology.py),
+    never modeled by hand."""
     ce_names = {_v(d["name"]) for d in _edges(contract_node.get("ce_devices"))}
     sessions = []
     for pe in _edges(contract_node.get("pe_devices")):
@@ -79,23 +76,18 @@ def _derive_sessions(contract_node):
             _v(c["name"]) for c in _edges(platform.get("capabilities"))
         }
         for iface in _edges(pe.get("interfaces")):
-            connector = _node(iface.get("connector"))
-            if not connector:
+            remote = peers.get((_v(pe["name"]), _v(iface["name"])))
+            if not remote or remote["device"] not in ce_names:
                 continue
-            for endpoint in _edges(connector["connected_endpoints"]):
-                remote_dev = _node(endpoint.get("device"))
-                if not remote_dev or _v(remote_dev["name"]) not in ce_names:
-                    continue
-                remote_ips = _iface_ips(endpoint)
-                if not remote_ips:
-                    continue
-                sessions.append({
-                    "device": _v(pe["name"]),
-                    "interface": _v(iface["name"]),
-                    "neighbor_ip": remote_ips[0].split("/")[0],
-                    "neighbor_device": _v(remote_dev["name"]),
-                    "collector": signal_catalog.collector_for(capabilities),
-                })
+            if not remote["ips"]:
+                continue
+            sessions.append({
+                "device": _v(pe["name"]),
+                "interface": _v(iface["name"]),
+                "neighbor_ip": remote["ips"][0].split("/")[0],
+                "neighbor_device": remote["device"],
+                "collector": signal_catalog.collector_for(capabilities),
+            })
     return sessions
 
 
@@ -111,7 +103,8 @@ def build_expectations(data):
     invariants = _edges(intent.get("invariants"))
 
     sessions = []
-    for s in _derive_sessions(contract):
+    peers = topology.link_peers(topology.address_index(data))
+    for s in _derive_sessions(contract, peers):
         sessions.append({
             "device": s["device"],
             "neighborIp": s["neighbor_ip"],

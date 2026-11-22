@@ -24,9 +24,15 @@ one-field edit rather than a rewrite.
 import ipaddress
 import pathlib
 import re
+import sys
 
 import jinja2
 from infrahub_sdk.transforms import InfrahubTransform
+
+# sibling import that works under Infrahub's loader and the orchestrator's
+# spec_from_file_location loader alike
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import topology  # noqa: E402
 
 LOOPBACK_PREFIXES = ("loopback", "system", "lo")
 
@@ -113,19 +119,12 @@ def _iface_ips(iface):
 def parse_device(data):
     node = data["DcimDevice"]["edges"][0]["node"]
     platform = _node(node.get("platform")) or {}
+    # far ends come from the addressing plan (point-to-point subnets),
+    # not from cables - see transforms/topology.py
+    peers = topology.link_peers(topology.address_index(data))
     interfaces = []
     for iface in _edges(node["interfaces"]):
-        remote = None
-        connector = _node(iface.get("connector"))
-        if connector:
-            for endpoint in _edges(connector["connected_endpoints"]):
-                remote_dev = _node(endpoint.get("device"))
-                if remote_dev and _v(remote_dev["name"]) != _v(node["name"]):
-                    remote = {
-                        "device": _v(remote_dev["name"]),
-                        "interface": _v(endpoint["name"]),
-                        "ips": _iface_ips(endpoint),
-                    }
+        remote = peers.get((_v(node["name"]), _v(iface["name"])))
         interfaces.append({
             "name": _v(iface["name"]),
             "description": _v(iface.get("description")),
@@ -327,9 +326,9 @@ def is_route_reflector(device, contracts):
 
 
 def edge_sessions(device, contract, local_side):
-    """Derive BGP sessions from modeled cabling.
+    """Derive BGP sessions from the modeled point-to-point links.
 
-    Walks the device's interfaces: any interface cabled to a device on
+    Walks the device's interfaces: any interface linked to a device on
     the *other* side of the contract yields one session (local ip,
     neighbor ip). No session objects are modeled - sessions are a
     consequence of the contract plus the topology.

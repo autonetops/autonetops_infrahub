@@ -19,7 +19,7 @@ IntentDefinition       the root: WHY + domain + owner + priority + status
   │                    operational rules (OpsChangeWindow inherits this)
   └─ invariants        IntentInvariant typed kinds (referenced, by scope):
                        NoLeak, PrefixAuthorization, Redundancy,
-                       CapabilityPresent, OobReachability, ...
+                       CapabilityPresent, ...
                        (severity: warning | major | critical)
 IntentWaiver           time-boxed permission to violate one policy/invariant
 ```
@@ -70,7 +70,7 @@ See [docs/workshop.md](docs/workshop.md). Short version:
 
 ```bash
 infrahubctl schema load ../schema-library/base \
-    ../schema-library/extensions/{vrf,cable,location_minimal,routing_bgp}
+    ../schema-library/extensions/{vrf,location_minimal,routing_bgp}
 infrahubctl schema load schemas/intent.yml
 python scripts/bootstrap.py
 cd clab && sudo containerlab deploy -t lab.clab.yml

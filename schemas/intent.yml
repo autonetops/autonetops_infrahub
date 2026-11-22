@@ -569,7 +569,7 @@ nodes:
     namespace: Intent
     generate_profile: false
     label: "Invariant: OOB reachability"
-    description: "Every device keeps a cabled management path to the OOB plane."
+    description: "Every device keeps a management path to the OOB plane (a subnet shared with an oob_switches member)."
     icon: "mdi:shield-lock"
     include_in_menu: false
     inherit_from:

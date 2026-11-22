@@ -1,0 +1,14 @@
+# ---------------------------------------------------------------------------
+# Remove DcimCable (loaded from schema-library extensions/cable/cable.yml).
+# `connected_endpoints` is inherited from DcimConnector, and no other kind
+# has a relationship whose peer is DcimCable, so one load is enough.
+# DcimConnector stays (it is also part of the schema-library base).
+#
+#   infrahubctl schema load schemas/migrations/remove_dcim_cable.yml
+# ---------------------------------------------------------------------------
+version: "1.0"
+
+nodes:
+  - name: Cable
+    namespace: Dcim
+    state: absent

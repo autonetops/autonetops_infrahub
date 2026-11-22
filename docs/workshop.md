@@ -64,7 +64,6 @@ Load schemas in dependency order (schema-library checked out next to this repo):
 ```bash
 infrahubctl schema load ../schema-library/base
 infrahubctl schema load ../schema-library/extensions/vrf \
-                        ../schema-library/extensions/cable \
                         ../schema-library/extensions/location_minimal \
                         ../schema-library/extensions/routing_bgp
 infrahubctl schema load schemas/intent.yml
@@ -122,7 +121,6 @@ Each check is a semantic statement, not a syntax check:
 | `contract_no_leak` | a no-leak tenant may not appear in `export_tenants` of any contract toward a denied zone |
 | `contract_prefix_authorization` | `allowed_prefixes` ⊆ tenant segments |
 | `tenant_redundancy` | ≥ N distinct PEs, distinct failure domains |
-| `oob_reachability` | every device has a management interface cabled to an `oob_switches` member |
 | `observability_capability` | every required signal is collectable on every attachment PE |
 
 **Exercise 3a (the leak that never ships):** on a branch, edit
@@ -165,7 +163,7 @@ diff). For the *same* `custc-ce-to-pe` contract:
   contract communities; on FRR it is `network` + `ip route … blackhole`. Same
   intent, two grammars. Neither box has FRR's `remote-as external`, so the CE
   renderer reads the provider ASN off the modeled PE on the far end of the
-  cable (SR Linux `peer-as`). Still derived, still no new intent field.
+  point-to-point link (SR Linux `peer-as`). Still derived, still no new intent field.
 
 The IOS-XE renderer now knows three shapes — route reflector (vpnv4 + an
 OSPF/LDP core), provider edge (VRFs, vpnv4 to the RR) and customer edge; SR
@@ -177,7 +175,10 @@ and the same rule picks the same shape — that is exactly the move that put the
 reflector on IOL and the CEs on SR Linux.
 
 Note what you did NOT write: sessions. They're derived from contract +
-cabling. Change a cable in the SoT and the sessions everywhere recompile.
+topology, and topology is the addressing plan: two interfaces that are the
+only holders of a subnet (a /30, a /31) are a link - there is no cable
+object (`transforms/topology.py`). Re-address a link in the SoT and the
+sessions everywhere recompile.
 
 Now change the intent (e.g. `local_preference: 120 → 200`) on a branch and
 open a Proposed Change: the artifact diff shows the exact config impact on

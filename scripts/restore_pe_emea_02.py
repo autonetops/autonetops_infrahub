@@ -11,15 +11,15 @@ the upper-case device names now in the SoT:
 
 * ASN 65010 and site EMEA POP B on PE-EMEA-02
 * Loopback0 / Ethernet1-4, re-bound to the (orphaned, still present) IPs
-* the half-empty cables toward core-rr-01 Ethernet0/2 and ce-custc-02
-  ethernet-1/1
-* peer-inet-01 (FRR, AS64999) and its peering cable to Ethernet3
-* contract membership: ibgp-core-rr (RR client), inet-peering-emea (+ its
-  198.51.100.0/24 allowed prefix)
+* peer-inet-01 (FRR, AS64999) and its eth1
+* links toward core-rr-01, ce-custc-02 and peer-inet-01 - no cables
+  (DcimCable is gone): the /31 and /30 addresses above ARE the links,
+  see transforms/topology.py
+* contract membership: ibgp-core-rr (RR client), custc-ce-to-pe
+  (inet-peering-emea was retired 2026-11-22)
 * groups: network_devices, monitored_devices
 
-Idempotent: every node upserts on its unique key; cables are only touched
-when an endpoint is missing.
+Idempotent: every node upserts on its unique key.
 
     INFRAHUB_BRANCH=restore-pe-emea-02 python scripts/restore_pe_emea_02.py
 """
@@ -107,51 +107,11 @@ def main():
     pe_if = build_ifaces(pe, PE_IFACES)
     peer_if = build_ifaces(peer, PEER_IFACES)
 
-    print("==> cabling")
-    cables = client.all("DcimCable", branch=BRANCH, include=["connected_endpoints"])
-
-    def endpoint_ids(cable):
-        # peer ids are populated on query; no fetch needed (and a fetch
-        # fails on peers this run just added by id only)
-        return {p.id for p in cable.connected_endpoints.peers}
-
-    def iface_id(device, name):
-        for kind in ("InterfacePhysical", "InterfaceVirtual"):
-            hits = client.filters(kind=kind, branch=BRANCH,
-                                  device__name__value=device, name__value=name)
-            if hits:
-                return hits[0].id
-        raise LookupError(f"{device} {name} not found")
-
-    def cable_to(far_dev, far_iface, local_id):
-        far_id = iface_id(far_dev, far_iface)
-        for cable in cables:
-            ends = endpoint_ids(cable)
-            if local_id in ends:
-                print(f"    {far_dev} {far_iface}: already cabled")
-                return
-            if far_id in ends:
-                add_rel(cable, "connected_endpoints", local_id)
-                print(f"    {far_dev} {far_iface}: re-attached orphaned cable")
-                return
-        upsert("DcimCable", status="connected", connected_endpoints=[far_id, local_id])
-        print(f"    {far_dev} {far_iface}: new cable")
-
-    cable_to("core-rr-01", "Ethernet0/2", pe_if["Ethernet1"].id)
-    cable_to("ce-custc-02", "ethernet-1/1", pe_if["Ethernet2"].id)
-    cable_to(PE, "Ethernet3", peer_if["eth1"].id)
-
     print("==> contracts")
     core = get("IntentRoutingContract", name__value="ibgp-core-rr")
     add_rel(core, "ce_devices", pe.id)
     edge = get("IntentRoutingContract", name__value="custc-ce-to-pe")
     add_rel(edge, "pe_devices", pe.id)
-    inet = get("IntentRoutingContract", name__value="inet-peering-emea")
-    add_rel(inet, "pe_devices", pe.id)
-    add_rel(inet, "ce_devices", peer.id)
-    # the peer's authorized announcement went with the cascade too
-    peer_pfx = upsert("IpamPrefix", prefix="198.51.100.0/24", status="active")
-    add_rel(inet, "allowed_prefixes", peer_pfx.id)
 
     print("==> groups")
     add_rel(get("CoreStandardGroup", name__value="network_devices"),
