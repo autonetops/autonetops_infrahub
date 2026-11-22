@@ -112,7 +112,7 @@ extensions:
       relationships:
         - name: instances
           peer: IpamVRFInstance
-          label: Instances (per PE)
+          label: Route Distinguishers
           kind: Component
           cardinality: many
           optional: true
